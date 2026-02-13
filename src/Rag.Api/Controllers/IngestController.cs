@@ -35,6 +35,10 @@ public sealed class IngestController : ControllerBase
         _log = log;
     }
 
+    /// <summary>
+    /// Synchronous ingestion for small text documents.
+    /// For PDFs or large documents, use POST /documents/upload-pdf instead.
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult<IngestResponse>> Ingest([FromBody] IngestRequest req, CancellationToken ct)
     {

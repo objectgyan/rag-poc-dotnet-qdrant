@@ -84,4 +84,48 @@ public sealed class QdrantVectorStore : IVectorStore
 
         return hits;
     }
+
+    public async Task DeleteByDocumentIdAsync(
+        string collection, 
+        string documentId, 
+        string? tenantId, 
+        CancellationToken ct)
+    {
+        var url = $"{_settings.Url.TrimEnd('/')}/collections/{collection}/points/delete?wait=true";
+
+        // Build filter to delete all points with matching documentId (and optionally tenantId)
+        var filter = new Dictionary<string, object>
+        {
+            ["must"] = new List<object>
+            {
+                new Dictionary<string, object>
+                {
+                    ["key"] = "documentId",
+                    ["match"] = new { value = documentId }
+                }
+            }
+        };
+
+        // Add tenant filter if provided
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            ((List<object>)filter["must"]).Add(new Dictionary<string, object>
+            {
+                ["key"] = "tenantId",
+                ["match"] = new { value = tenantId }
+            });
+        }
+
+        var deleteRequest = new { filter };
+
+        using var resp = await _http.PostAsJsonAsync(url, deleteRequest, ct);
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(
+                $"Qdrant delete failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}"
+            );
+        }
+    }
 }

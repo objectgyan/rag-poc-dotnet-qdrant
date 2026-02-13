@@ -20,4 +20,14 @@ public interface IVectorStore
         int topK, 
         string? tenantId, 
         CancellationToken ct);
+    
+    /// <summary>
+    /// Deletes all vectors associated with a document.
+    /// If tenantId is provided, only deletes vectors for that tenant.
+    /// </summary>
+    Task DeleteByDocumentIdAsync(
+        string collection, 
+        string documentId, 
+        string? tenantId, 
+        CancellationToken ct);
 }

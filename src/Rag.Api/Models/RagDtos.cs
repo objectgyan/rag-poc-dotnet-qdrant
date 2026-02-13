@@ -25,3 +25,22 @@ public sealed record AskResponse(
     List<Citation> Citations,
     string TenantId
 );
+
+/// <summary>
+/// Response when starting a background ingestion job.
+/// </summary>
+public sealed record IngestJobResponse(
+    string JobId,
+    string DocumentId,
+    string Status,
+    string Message
+);
+
+/// <summary>
+/// Response when deleting a document.
+/// </summary>
+public sealed record DeleteDocumentResponse(
+    string DocumentId,
+    string TenantId,
+    string Message
+);

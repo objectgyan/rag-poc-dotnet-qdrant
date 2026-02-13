@@ -1,3 +1,5 @@
+using Hangfire;
+using Hangfire.MemoryStorage;
 using Rag.Api.Configuration;
 using Rag.Api.Middleware;
 using Rag.Core.Abstractions;
@@ -39,6 +41,22 @@ builder.Services.AddSingleton<IJwtService, Rag.Infrastructure.Authentication.Jwt
 
 // 💰 PHASE 3 - Cost Tracking
 builder.Services.AddSingleton<ICostCalculator, Rag.Infrastructure.Cost.CostCalculator>();
+
+// 📂 PHASE 3 - Real-World Features: PDF & Background Jobs
+builder.Services.AddSingleton<IPdfTextExtractor, Rag.Infrastructure.Pdf.PdfTextExtractor>();
+builder.Services.AddSingleton<IDocumentIngestionService, Rag.Infrastructure.Services.DocumentIngestionService>();
+
+// Configure Hangfire for background job processing
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseMemoryStorage());
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 2; // Number of concurrent background workers
+});
 
 // ⚡ PHASE 1 - Hardening: Resilient HTTP Clients with Polly
 builder.Services.AddResilientHttpClients(builder.Configuration);
@@ -98,6 +116,12 @@ app.UseRateLimiter();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Hangfire Dashboard for monitoring background jobs
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [] // In production, add proper authorization
+});
 
 app.MapGet("/", () => "RAG API Running");
 app.MapControllers();
