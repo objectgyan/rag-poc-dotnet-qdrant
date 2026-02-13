@@ -2,6 +2,7 @@ using Rag.Api.Configuration;
 using Rag.Api.Middleware;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
+using Rag.Core.Services;
 using Rag.Infrastructure.Claude;
 using Rag.Infrastructure.OpenAI;
 using Rag.Infrastructure.Qdrant;
@@ -13,6 +14,7 @@ builder.Services.Configure<QdrantSettings>(builder.Configuration.GetSection("Qdr
 builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<AnthropicSettings>(builder.Configuration.GetSection("Anthropic"));
 builder.Services.Configure<SecuritySettings>(builder.Configuration.GetSection("Security"));
+builder.Services.Configure<MultiTenancySettings>(builder.Configuration.GetSection("MultiTenancy"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -23,6 +25,10 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicSettings>>().Value);
+
+// 🏢 PHASE 2 - Enterprise: Multi-Tenancy Support
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
 
 // ⚡ PHASE 1 - Hardening: Resilient HTTP Clients with Polly
 builder.Services.AddResilientHttpClients(builder.Configuration);
@@ -70,6 +76,9 @@ app.UseExceptionHandler(errorApp =>
 
 // ⚡ PHASE 1 - Hardening: API Key Authentication
 app.UseMiddleware<ApiKeyAuthMiddleware>();
+
+// 🏢 PHASE 2 - Enterprise: Multi-Tenancy
+app.UseMiddleware<TenantMiddleware>();
 
 // ⚡ PHASE 1 - Hardening: Rate Limiting
 app.UseRateLimiter();

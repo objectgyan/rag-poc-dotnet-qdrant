@@ -4,6 +4,7 @@ using Rag.Api.Configuration;
 using Rag.Api.Models;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
+using Rag.Core.Services;
 using System.Text;
 
 namespace Rag.Api.Controllers;
@@ -17,13 +18,20 @@ public sealed class AskController : ControllerBase
     private readonly IVectorStore _vectorStore;
     private readonly IChatModel _chat;
     private readonly QdrantSettings _qdrant;
+    private readonly ITenantContext _tenantContext;
 
-    public AskController(IEmbeddingModel embeddings, IVectorStore vectorStore, IChatModel chat, QdrantSettings qdrant)
+    public AskController(
+        IEmbeddingModel embeddings, 
+        IVectorStore vectorStore, 
+        IChatModel chat, 
+        QdrantSettings qdrant,
+        ITenantContext tenantContext)
     {
         _embeddings = embeddings;
         _vectorStore = vectorStore;
         _chat = chat;
         _qdrant = qdrant;
+        _tenantContext = tenantContext;
     }
 
     [HttpPost]
@@ -33,7 +41,14 @@ public sealed class AskController : ControllerBase
             return BadRequest("question is required");
 
         var qVec = await _embeddings.EmbedAsync(req.Question, ct);
-        var hits = await _vectorStore.SearchAsync(_qdrant.Collection, qVec, topK: Math.Clamp(req.TopK, 1, 20), ct);
+        
+        // Search with tenant filtering for multi-tenant isolation
+        var hits = await _vectorStore.SearchAsync(
+            _qdrant.Collection, 
+            qVec, 
+            topK: Math.Clamp(req.TopK, 1, 20), 
+            tenantId: _tenantContext.TenantId,
+            ct);
 
         // Build context with citations
         var citations = new List<Citation>();
@@ -75,6 +90,7 @@ public sealed class AskController : ControllerBase
         .OrderByDescending(x => x.Score)
         .ToList();
 
-        return Ok(new AskResponse(answer, deduped));
+        var tenantId = _tenantContext.TenantId ?? "default";
+        return Ok(new AskResponse(answer, deduped, tenantId));
     }
 }

@@ -33,16 +33,40 @@ public sealed class QdrantVectorStore : IVectorStore
         }
     }
 
-    public async Task<IReadOnlyList<VectorHit>> SearchAsync(string collection, float[] queryVector, int topK, CancellationToken ct)
+    public async Task<IReadOnlyList<VectorHit>> SearchAsync(
+        string collection, 
+        float[] queryVector, 
+        int topK, 
+        string? tenantId, 
+        CancellationToken ct)
     {
         var url = $"{_settings.Url.TrimEnd('/')}/collections/{collection}/points/search";
 
-        using var resp = await _http.PostAsJsonAsync(url, new
+        // Build search request with optional tenant filtering
+        var searchRequest = new Dictionary<string, object>
         {
-            vector = queryVector,
-            limit = topK,
-            with_payload = true
-        }, ct);
+            ["vector"] = queryVector,
+            ["limit"] = topK,
+            ["with_payload"] = true
+        };
+
+        // Add tenant filter if multi-tenancy is enabled
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            searchRequest["filter"] = new
+            {
+                must = new[]
+                {
+                    new
+                    {
+                        key = "tenantId",
+                        match = new { value = tenantId }
+                    }
+                }
+            };
+        }
+
+        using var resp = await _http.PostAsJsonAsync(url, searchRequest, ct);
 
         resp.EnsureSuccessStatusCode();
 

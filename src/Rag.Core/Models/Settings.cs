@@ -29,3 +29,23 @@ public sealed class ResilienceSettings
     public int InitialRetryDelayMs { get; set; } = 500;
     public int TimeoutSeconds { get; set; } = 30;
 }
+
+public sealed class MultiTenancySettings
+{
+    /// <summary>
+    /// If true, X-Tenant-Id header is required for all requests.
+    /// If false, uses DefaultTenantId when header is not provided.
+    /// </summary>
+    public bool RequireTenantId { get; set; } = false;
+    
+    /// <summary>
+    /// Default tenant ID to use when multi-tenancy is not enforced and no header is provided.
+    /// Leave empty for single-tenant mode.
+    /// </summary>
+    public string? DefaultTenantId { get; set; } = null;
+    
+    /// <summary>
+    /// Enable multi-tenant features (tenant filtering, isolation).
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+}

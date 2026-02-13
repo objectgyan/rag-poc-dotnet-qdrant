@@ -4,6 +4,7 @@ using Rag.Api.Configuration;
 using Rag.Api.Models;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
+using Rag.Core.Services;
 using Rag.Core.Text;
 
 namespace Rag.Api.Controllers;
@@ -16,14 +17,20 @@ public sealed class IngestController : ControllerBase
     private readonly IEmbeddingModel _embeddings;
     private readonly IVectorStore _vectorStore;
     private readonly QdrantSettings _qdrant;
-
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<IngestController> _log;
 
-    public IngestController(IEmbeddingModel embeddings, IVectorStore vectorStore, QdrantSettings qdrant, ILogger<IngestController> log)
+    public IngestController(
+        IEmbeddingModel embeddings, 
+        IVectorStore vectorStore, 
+        QdrantSettings qdrant, 
+        ITenantContext tenantContext,
+        ILogger<IngestController> log)
     {
         _embeddings = embeddings;
         _vectorStore = vectorStore;
         _qdrant = qdrant;
+        _tenantContext = tenantContext;
         _log = log;
     }
 
@@ -44,22 +51,34 @@ public sealed class IngestController : ControllerBase
             var chunkText = chunks[i];
             var vec = await _embeddings.EmbedAsync(chunkText, ct);
 
+            var payload = new Dictionary<string, object>
+            {
+                ["documentId"] = req.DocumentId,
+                ["chunkIndex"] = i,
+                ["text"] = chunkText
+            };
+
+            // Add tenant ID to payload for multi-tenant isolation
+            if (_tenantContext.IsMultiTenantEnabled)
+            {
+                payload["tenantId"] = _tenantContext.RequiredTenantId;
+            }
+
             records.Add(new VectorRecord(
-                Id: StableUuid($"{req.DocumentId}:{i}"),
+                Id: StableUuid($"{_tenantContext.TenantId ?? "default"}:{req.DocumentId}:{i}"),
                 Vector: vec,
-                Payload: new Dictionary<string, object>
-                {
-                    ["documentId"] = req.DocumentId,
-                    ["chunkIndex"] = i,
-                    ["text"] = chunkText
-                }
+                Payload: payload
             ));
         }
 
         await _vectorStore.UpsertAsync(_qdrant.Collection, records, ct);
         sw.Stop();
-        _log.LogInformation("Ingested doc {DocId} chunks={Chunks} ms={Ms}", req.DocumentId, chunks.Count, sw.ElapsedMilliseconds);
-        return Ok(new IngestResponse(req.DocumentId, chunks.Count));
+        
+        var tenantId = _tenantContext.TenantId ?? "default";
+        _log.LogInformation("Ingested doc {DocId} chunks={Chunks} tenant={TenantId} ms={Ms}", 
+            req.DocumentId, chunks.Count, tenantId, sw.ElapsedMilliseconds);
+        
+        return Ok(new IngestResponse(req.DocumentId, chunks.Count, tenantId));
     }
 
     static string StableUuid(string input)

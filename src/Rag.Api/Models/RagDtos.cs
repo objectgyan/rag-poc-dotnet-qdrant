@@ -1,17 +1,27 @@
 namespace Rag.Api.Models;
 
+/// <summary>
+/// Request to ingest a document into the RAG system.
+/// TenantId is automatically extracted from X-Tenant-Id header by middleware.
+/// </summary>
 public sealed record IngestRequest(string DocumentId, string Text);
 
 public sealed record IngestResponse(
     string DocumentId,
-    int ChunkCount
+    int ChunkCount,
+    string TenantId
 );
 
+/// <summary>
+/// Request to ask a question against the RAG system.
+/// TenantId is automatically extracted from X-Tenant-Id header - ensures tenant isolation.
+/// </summary>
 public sealed record AskRequest(string Question, int TopK = 5);
 
 public sealed record Citation(string DocumentId, int ChunkIndex, double Score);
 
 public sealed record AskResponse(
     string Answer,
-    List<Citation> Citations
+    List<Citation> Citations,
+    string TenantId
 );
