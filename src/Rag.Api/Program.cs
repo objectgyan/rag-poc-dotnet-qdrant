@@ -1,3 +1,5 @@
+using Rag.Api.Configuration;
+using Rag.Api.Middleware;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
 using Rag.Infrastructure.Claude;
@@ -10,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<QdrantSettings>(builder.Configuration.GetSection("Qdrant"));
 builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<AnthropicSettings>(builder.Configuration.GetSection("Anthropic"));
+builder.Services.Configure<SecuritySettings>(builder.Configuration.GetSection("Security"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -21,12 +24,10 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicSettings>>().Value);
 
-  
+// ⚡ PHASE 1 - Hardening: Resilient HTTP Clients with Polly
+builder.Services.AddResilientHttpClients(builder.Configuration);
 
-// HttpClient
-builder.Services.AddHttpClient();
-
-// Register services
+// Register services with resilient HTTP clients
 builder.Services.AddSingleton<OpenAiEmbeddingModel>();
 builder.Services.AddSingleton<IEmbeddingModel>(sp =>
     new CachedEmbeddingModel(
@@ -35,6 +36,10 @@ builder.Services.AddSingleton<IEmbeddingModel>(sp =>
 );  
 builder.Services.AddSingleton<IChatModel, ClaudeChatModel>();
 builder.Services.AddSingleton<IVectorStore, QdrantVectorStore>();
+
+// ⚡ PHASE 1 - Hardening: Rate Limiting
+builder.Services.AddRagRateLimiting(builder.Configuration);
+
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -62,6 +67,12 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(payload);
     });
 });
+
+// ⚡ PHASE 1 - Hardening: API Key Authentication
+app.UseMiddleware<ApiKeyAuthMiddleware>();
+
+// ⚡ PHASE 1 - Hardening: Rate Limiting
+app.UseRateLimiter();
 
 app.UseSwagger();
 app.UseSwaggerUI();

@@ -10,9 +10,10 @@ public sealed class QdrantVectorStore : IVectorStore
     private readonly HttpClient _http;
     private readonly QdrantSettings _settings;
 
-    public QdrantVectorStore(HttpClient http, QdrantSettings settings)
+    public QdrantVectorStore(IHttpClientFactory httpClientFactory, QdrantSettings settings)
     {
-        _http = http;
+        // Use named client with resilience policies
+        _http = httpClientFactory.CreateClient("QdrantHttpClient");
         _settings = settings;
     }
 

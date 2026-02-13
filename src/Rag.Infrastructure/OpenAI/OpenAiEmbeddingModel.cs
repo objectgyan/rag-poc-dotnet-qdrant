@@ -11,9 +11,10 @@ public sealed class OpenAiEmbeddingModel : IEmbeddingModel
     private readonly HttpClient _http;
     private readonly OpenAiSettings _settings;
 
-    public OpenAiEmbeddingModel(HttpClient http, OpenAiSettings settings)
+    public OpenAiEmbeddingModel(IHttpClientFactory httpClientFactory, OpenAiSettings settings)
     {
-        _http = http;
+        // Use named client with resilience policies
+        _http = httpClientFactory.CreateClient("OpenAiHttpClient");
         _settings = settings;
     }
 

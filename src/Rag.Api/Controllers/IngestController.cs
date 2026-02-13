@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Rag.Api.Configuration;
 using Rag.Api.Models;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
@@ -8,6 +10,7 @@ namespace Rag.Api.Controllers;
 
 [ApiController]
 [Route("ingest")]
+[EnableRateLimiting(RateLimitingConfiguration.IngestPolicy)]
 public sealed class IngestController : ControllerBase
 {
     private readonly IEmbeddingModel _embeddings;

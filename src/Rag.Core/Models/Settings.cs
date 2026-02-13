@@ -17,3 +17,15 @@ public sealed class AnthropicSettings
     public string ApiKey { get; set; } = "";
     public string Model { get; set; } = "claude-3-5-sonnet-latest";
 }
+
+public sealed class SecuritySettings
+{
+    public string ApiKey { get; set; } = "";
+}
+
+public sealed class ResilienceSettings
+{
+    public int MaxRetryAttempts { get; set; } = 3;
+    public int InitialRetryDelayMs { get; set; } = 500;
+    public int TimeoutSeconds { get; set; } = 30;
+}

@@ -10,9 +10,10 @@ public sealed class ClaudeChatModel : IChatModel
     private readonly HttpClient _http;
     private readonly AnthropicSettings _settings;
 
-    public ClaudeChatModel(HttpClient http, AnthropicSettings settings)
+    public ClaudeChatModel(IHttpClientFactory httpClientFactory, AnthropicSettings settings)
     {
-        _http = http;
+        // Use named client with resilience policies
+        _http = httpClientFactory.CreateClient("ClaudeHttpClient");
         _settings = settings;
     }
 
