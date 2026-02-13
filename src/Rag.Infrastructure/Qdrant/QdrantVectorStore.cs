@@ -22,7 +22,14 @@ public sealed class QdrantVectorStore : IVectorStore
         var points = records.Select(r => new { id = r.Id, vector = r.Vector, payload = r.Payload }).ToArray();
 
         using var resp = await _http.PutAsJsonAsync(url, new { points }, ct);
-        resp.EnsureSuccessStatusCode();
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(
+                $"Qdrant upsert failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}"
+            );
+        }
     }
 
     public async Task<IReadOnlyList<VectorHit>> SearchAsync(string collection, float[] queryVector, int topK, CancellationToken ct)
