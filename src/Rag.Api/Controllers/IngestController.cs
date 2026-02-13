@@ -14,11 +14,14 @@ public sealed class IngestController : ControllerBase
     private readonly IVectorStore _vectorStore;
     private readonly QdrantSettings _qdrant;
 
-    public IngestController(IEmbeddingModel embeddings, IVectorStore vectorStore, QdrantSettings qdrant)
+    private readonly ILogger<IngestController> _log;
+
+    public IngestController(IEmbeddingModel embeddings, IVectorStore vectorStore, QdrantSettings qdrant, ILogger<IngestController> log)
     {
         _embeddings = embeddings;
         _vectorStore = vectorStore;
         _qdrant = qdrant;
+        _log = log;
     }
 
     [HttpPost]
@@ -28,6 +31,7 @@ public sealed class IngestController : ControllerBase
             return BadRequest("documentId is required");
         if (string.IsNullOrWhiteSpace(req.Text))
             return BadRequest("text is required");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         var chunks = Chunker.Chunk(req.Text);
 
@@ -38,7 +42,7 @@ public sealed class IngestController : ControllerBase
             var vec = await _embeddings.EmbedAsync(chunkText, ct);
 
             records.Add(new VectorRecord(
-                Id: Guid.NewGuid().ToString("D"),
+                Id: StableUuid($"{req.DocumentId}:{i}"),
                 Vector: vec,
                 Payload: new Dictionary<string, object>
                 {
@@ -50,6 +54,15 @@ public sealed class IngestController : ControllerBase
         }
 
         await _vectorStore.UpsertAsync(_qdrant.Collection, records, ct);
+        sw.Stop();
+        _log.LogInformation("Ingested doc {DocId} chunks={Chunks} ms={Ms}", req.DocumentId, chunks.Count, sw.ElapsedMilliseconds);
         return Ok(new IngestResponse(req.DocumentId, chunks.Count));
+    }
+
+    static string StableUuid(string input)
+    {
+        using var md5 = System.Security.Cryptography.MD5.Create();
+        var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+        return new Guid(hash).ToString("D");
     }
 }

@@ -21,11 +21,18 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicSettings>>().Value);
 
+  
+
 // HttpClient
 builder.Services.AddHttpClient();
 
 // Register services
-builder.Services.AddSingleton<IEmbeddingModel, OpenAiEmbeddingModel>();
+builder.Services.AddSingleton<OpenAiEmbeddingModel>();
+builder.Services.AddSingleton<IEmbeddingModel>(sp =>
+    new CachedEmbeddingModel(
+        sp.GetRequiredService<OpenAiEmbeddingModel>()
+    )
+);  
 builder.Services.AddSingleton<IChatModel, ClaudeChatModel>();
 builder.Services.AddSingleton<IVectorStore, QdrantVectorStore>();
 builder.Services.AddControllers();
@@ -34,6 +41,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        var payload = new
+        {
+            error = "internal_error",
+            message = ex?.Message,
+            traceId = context.TraceIdentifier
+        };
+
+        await context.Response.WriteAsJsonAsync(payload);
+    });
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();
