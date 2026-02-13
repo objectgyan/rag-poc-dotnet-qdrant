@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Rag.Api.Configuration;
+using Rag.Api.Middleware;
 using Rag.Api.Models;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
@@ -40,12 +41,15 @@ public sealed class AskController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Question))
             return BadRequest("question is required");
 
-        var qVec = await _embeddings.EmbedAsync(req.Question, ct);
+        var embeddingResult = await _embeddings.EmbedAsync(req.Question, ct);
+        
+        // Track embedding token usage
+        HttpContext.TrackTokenUsage(embeddingResult.TokenUsage);
         
         // Search with tenant filtering for multi-tenant isolation
         var hits = await _vectorStore.SearchAsync(
             _qdrant.Collection, 
-            qVec, 
+            embeddingResult.Embedding, 
             topK: Math.Clamp(req.TopK, 1, 20), 
             tenantId: _tenantContext.TenantId,
             ct);
@@ -81,9 +85,13 @@ public sealed class AskController : ControllerBase
 
         Context:
         {context}
+        
+        // Track chat token usage
+        HttpContext.TrackTokenUsage(chatResult.TokenUsage);
+        
         ";
 
-        var answer = await _chat.AnswerAsync(systemPrompt, userPrompt, ct);
+        var chatResult = await _chat.AnswerAsync(systemPrompt, userPrompt, ct);
         var deduped = citations
         .GroupBy(c => (c.DocumentId, c.ChunkIndex))
         .Select(g => g.OrderByDescending(x => x.Score).First())
@@ -91,6 +99,6 @@ public sealed class AskController : ControllerBase
         .ToList();
 
         var tenantId = _tenantContext.TenantId ?? "default";
-        return Ok(new AskResponse(answer, deduped, tenantId));
+        return Ok(new AskResponse(chatResult.Answer, deduped, tenantId));
     }
 }

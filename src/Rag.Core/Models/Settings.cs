@@ -49,3 +49,27 @@ public sealed class MultiTenancySettings
     /// </summary>
     public bool Enabled { get; set; } = true;
 }
+
+public sealed class JwtSettings
+{
+    /// <summary>
+    /// JWT issuer (e.g., "https://your-api.com").
+    /// </summary>
+    public string Issuer { get; set; } = "RagPocApi";
+    
+    /// <summary>
+    /// JWT audience (e.g., "https://your-api.com").
+    /// </summary>
+    public string Audience { get; set; } = "RagPocClient";
+    
+    /// <summary>
+    /// Secret key for signing JWTs. MUST be at least 32 characters.
+    /// In production, use a secure random key and store in Azure Key Vault or secrets manager.
+    /// </summary>
+    public string SecretKey { get; set; } = "";
+    
+    /// <summary>
+    /// Enable JWT authentication. If false, falls back to API key authentication.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+}

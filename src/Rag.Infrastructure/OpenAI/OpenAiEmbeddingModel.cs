@@ -18,7 +18,7 @@ public sealed class OpenAiEmbeddingModel : IEmbeddingModel
         _settings = settings;
     }
 
-    public async Task<float[]> EmbedAsync(string text, CancellationToken ct)
+    public async Task<EmbeddingResult> EmbedAsync(string text, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/embeddings");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
@@ -40,6 +40,18 @@ public sealed class OpenAiEmbeddingModel : IEmbeddingModel
         foreach (var v in emb.EnumerateArray())
             vec[i++] = (float)v.GetDouble();
 
-        return vec;
+        // Parse token usage from response
+        var usage = doc.RootElement.GetProperty("usage");
+        var totalTokens = usage.GetProperty("total_tokens").GetInt32();
+        
+        var tokenUsage = new TokenUsage
+        {
+            Model = _settings.EmbeddingModel,
+            InputTokens = totalTokens, // OpenAI embeddings only count input tokens
+            OutputTokens = 0,
+            TotalTokens = totalTokens
+        };
+
+        return new EmbeddingResult(vec, tokenUsage);
     }
 }

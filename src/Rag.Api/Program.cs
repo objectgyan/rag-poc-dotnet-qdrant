@@ -15,6 +15,8 @@ builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("Ope
 builder.Services.Configure<AnthropicSettings>(builder.Configuration.GetSection("Anthropic"));
 builder.Services.Configure<SecuritySettings>(builder.Configuration.GetSection("Security"));
 builder.Services.Configure<MultiTenancySettings>(builder.Configuration.GetSection("MultiTenancy"));
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<CostTrackingSettings>(builder.Configuration.GetSection("CostTracking"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -29,6 +31,14 @@ builder.Services.AddSingleton(sp =>
 // 🏢 PHASE 2 - Enterprise: Multi-Tenancy Support
 builder.Services.AddScoped<TenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+
+// 🔐 PHASE 3 - Security & Cost: User Context & JWT Authentication
+builder.Services.AddScoped<UserContext>();
+builder.Services.AddScoped<IUserContext>(sp => sp.GetRequiredService<UserContext>());
+builder.Services.AddSingleton<IJwtService, Rag.Infrastructure.Authentication.JwtService>();
+
+// 💰 PHASE 3 - Cost Tracking
+builder.Services.AddSingleton<ICostCalculator, Rag.Infrastructure.Cost.CostCalculator>();
 
 // ⚡ PHASE 1 - Hardening: Resilient HTTP Clients with Polly
 builder.Services.AddResilientHttpClients(builder.Configuration);
@@ -74,13 +84,16 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-// ⚡ PHASE 1 - Hardening: API Key Authentication
-app.UseMiddleware<ApiKeyAuthMiddleware>();
+// PHASE 3 - Security: JWT Authentication (falls back to API key)
+app.UseMiddleware<JwtAuthMiddleware>();
 
-// 🏢 PHASE 2 - Enterprise: Multi-Tenancy
+// PHASE 2 - Enterprise: Multi-Tenancy
 app.UseMiddleware<TenantMiddleware>();
 
-// ⚡ PHASE 1 - Hardening: Rate Limiting
+// PHASE 3 - Cost Tracking (tracks token usage and costs per request)
+app.UseMiddleware<CostTrackingMiddleware>();
+
+// PHASE 1 - Hardening: Rate Limiting
 app.UseRateLimiter();
 
 app.UseSwagger();

@@ -1,6 +1,10 @@
+using Rag.Core.Models;
+
 namespace Rag.Core.Abstractions;
 
 public interface IEmbeddingModel
 {
-    Task<float[]> EmbedAsync(string text, CancellationToken ct);
+    Task<EmbeddingResult> EmbedAsync(string text, CancellationToken ct);
 }
+
+public record EmbeddingResult(float[] Embedding, TokenUsage TokenUsage);

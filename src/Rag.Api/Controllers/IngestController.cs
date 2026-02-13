@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Rag.Api.Configuration;
+using Rag.Api.Middleware;
 using Rag.Api.Models;
 using Rag.Core.Abstractions;
 using Rag.Core.Models;
@@ -49,7 +50,10 @@ public sealed class IngestController : ControllerBase
         for (int i = 0; i < chunks.Count; i++)
         {
             var chunkText = chunks[i];
-            var vec = await _embeddings.EmbedAsync(chunkText, ct);
+            var embeddingResult = await _embeddings.EmbedAsync(chunkText, ct);
+            
+            // Track token usage for cost monitoring
+            HttpContext.TrackTokenUsage(embeddingResult.TokenUsage);
 
             var payload = new Dictionary<string, object>
             {
@@ -66,7 +70,7 @@ public sealed class IngestController : ControllerBase
 
             records.Add(new VectorRecord(
                 Id: StableUuid($"{_tenantContext.TenantId ?? "default"}:{req.DocumentId}:{i}"),
-                Vector: vec,
+                Vector: embeddingResult.Embedding,
                 Payload: payload
             ));
         }

@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.RateLimiting;
+using Rag.Core.Models;
+using Rag.Core.Services;
 using System.Threading.RateLimiting;
 
 namespace Rag.Api.Configuration;
 
 /// <summary>
-/// Rate limiting configuration to prevent abuse and protect LLM costs.
+/// Tier-based rate limiting configuration to prevent abuse and protect LLM costs.
+/// Uses subscription tiers to apply different rate limits per user.
 /// </summary>
 public static class RateLimitingConfiguration
 {
@@ -20,22 +23,41 @@ public static class RateLimitingConfiguration
             // Reject requests when rate limit is exceeded
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            // Default policy: Fixed window for /ask endpoint
-            options.AddFixedWindowLimiter(DefaultPolicy, opt =>
+            // 💎 PHASE 3: Tier-based rate limiting for /ask endpoint
+            // Uses user's subscription tier to determine rate limits
+            options.AddPolicy(DefaultPolicy, context =>
             {
-                opt.PermitLimit = settings.AskRequestsPerMinute;
-                opt.Window = TimeSpan.FromMinutes(1);
-                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                opt.QueueLimit = 0; // No queuing
+                var userContext = context.RequestServices.GetService<IUserContext>();
+                var tierLimits = userContext?.TierLimits ?? TierLimits.Free;
+                
+                var userId = userContext?.UserId ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+                var partitionKey = $"ask:{userId}";
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = tierLimits.AskRequestsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0
+                });
             });
 
-            // Ingest policy: More restrictive for expensive operations
-            options.AddFixedWindowLimiter(IngestPolicy, opt =>
+            // 💎 PHASE 3: Tier-based rate limiting for /ingest endpoint
+            options.AddPolicy(IngestPolicy, context =>
             {
-                opt.PermitLimit = settings.IngestRequestsPerMinute;
-                opt.Window = TimeSpan.FromMinutes(1);
-                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                opt.QueueLimit = 0;
+                var userContext = context.RequestServices.GetService<IUserContext>();
+                var tierLimits = userContext?.TierLimits ?? TierLimits.Free;
+                
+                var userId = userContext?.UserId ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+                var partitionKey = $"ingest:{userId}";
+
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = tierLimits.IngestRequestsPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 0
+                });
             });
 
             // Global limiter: Prevent overwhelming the entire API
@@ -60,10 +82,14 @@ public static class RateLimitingConfiguration
                     retryAfterSeconds = retryAfter.TotalSeconds;
                 }
                 
+                var userContext = context.HttpContext.RequestServices.GetService<IUserContext>();
+                var tier = userContext?.Tier.ToString() ?? "Free";
+                
                 await context.HttpContext.Response.WriteAsJsonAsync(new
                 {
                     error = "rate_limit_exceeded",
-                    message = "Too many requests. Please try again later.",
+                    message = $"Rate limit exceeded for {tier} tier. Please try again later or upgrade your subscription.",
+                    tier = tier,
                     retryAfter = retryAfterSeconds
                 }, cancellationToken: cancellationToken);
             };
