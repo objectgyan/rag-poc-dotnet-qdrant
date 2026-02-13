@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Rag.Api/Rag.Api.csproj" />
+    <Project Path="src/Rag.Core/Rag.Core.csproj" />
+    <Project Path="src/Rag.Infrastructure/Rag.Infrastructure.csproj" />
+  </Folder>
+</Solution>
