@@ -155,7 +155,7 @@ sequenceDiagram
     participant Store as App Store
 
     User->>Login: Enter credentials
-    Login->>API: POST /authentication/login<br/>{username, password}
+    Login->>API: POST /api/v1/authentication/login<br/>{username, password}
     API->>AuthSvc: AuthenticateAsync()
     
     alt Valid Credentials
@@ -201,7 +201,7 @@ sequenceDiagram
     participant Claude as Chat Model
 
     User->>UI: Enter question
-    UI->>API: POST /ask<br/>{question, topK}
+    UI->>API: POST /api/v1/ask<br/>{question, topK}
     
     Note over API: JWT validation<br/>Extract tenant_id
     
@@ -524,7 +524,7 @@ Base URL: `http://localhost:5129`
 
 #### Ingest Text Document
 ```http
-POST /ingest
+POST /api/v1/ingest
 Content-Type: application/json
 X-API-Key: secure_password
 X-Tenant-Id: your-tenant-id
@@ -544,7 +544,7 @@ Response: 200 OK
 
 #### Upload PDF Document
 ```http
-POST /documents/upload-pdf
+POST /api/v1/documents/upload-pdf
 X-API-Key: secure_password
 X-Tenant-Id: your-tenant-id
 Content-Type: multipart/form-data
@@ -564,7 +564,7 @@ Response: 202 Accepted
 
 #### Ask Question (RAG Query)
 ```http
-POST /ask
+POST /api/v1/ask
 Content-Type: application/json
 X-API-Key: secure_password
 X-Tenant-Id: your-tenant-id
@@ -591,11 +591,11 @@ Response: 200 OK
 See [PHASE4-EVALUATION-QUALITY.md](PHASE4-EVALUATION-QUALITY.md) for complete API reference.
 
 Key endpoints:
-- `POST /evaluation/test-cases` - Create test case
-- `GET /evaluation/test-cases` - List test cases
-- `POST /evaluation/run` - Run evaluation
-- `GET /evaluation/runs/{runId}` - Get results
-- `GET /evaluation/metrics` - Aggregate metrics
+- `POST /api/v1/evaluation/test-cases` - Create test case
+- `GET /api/v1/evaluation/test-cases` - List test cases
+- `POST /api/v1/evaluation/run` - Run evaluation
+- `GET /api/v1/evaluation/runs/{runId}` - Get results
+- `GET /api/v1/evaluation/metrics` - Aggregate metrics
 
 ### 4. Agent Endpoints (🚀 Advanced)
 
@@ -603,7 +603,7 @@ See [PHASE5-AGENT-LAYER.md](PHASE5-AGENT-LAYER.md) for complete API reference.
 
 #### Chat with Agent
 ```http
-POST /agent/chat
+POST /api/v1/agent/chat
 Content-Type: application/json
 X-API-Key: secure_password
 
@@ -629,10 +629,10 @@ Response: 200 OK
 ```
 
 Other agent endpoints:
-- `GET /agent/tools` - List available tools
-- `POST /agent/ingest-codebase` - Ingest codebase
-- `POST /agent/search-code` - Semantic code search
-- `GET /agent/code-context` - Get file context
+- `GET /api/v1/agent/tools` - List available tools
+- `POST /api/v1/agent/ingest-codebase` - Ingest codebase
+- `POST /api/v1/agent/search-code` - Semantic code search
+- `GET /api/v1/agent/code-context` - Get file context
 
 ## 🎨 Frontend Integration Guide
 
