@@ -5,7 +5,7 @@ using Rag.Core.Services;
 namespace Rag.Api.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/v1/authentication")]
 public sealed class AuthenticationController : ControllerBase
 {
     private readonly IAuthenticationService _authService;

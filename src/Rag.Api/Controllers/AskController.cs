@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Rag.Api.Configuration;
@@ -11,7 +12,7 @@ using System.Text;
 namespace Rag.Api.Controllers;
 
 [ApiController]
-[Route("ask")]
+[Route("api/v1/ask")]
 [EnableRateLimiting(RateLimitingConfiguration.DefaultPolicy)]
 public sealed class AskController : ControllerBase
 {
@@ -20,26 +21,33 @@ public sealed class AskController : ControllerBase
     private readonly IChatModel _chat;
     private readonly QdrantSettings _qdrant;
     private readonly ITenantContext _tenantContext;
+    private readonly IValidator<AskRequest> _validator;
 
     public AskController(
-        IEmbeddingModel embeddings, 
-        IVectorStore vectorStore, 
-        IChatModel chat, 
+        IEmbeddingModel embeddings,
+        IVectorStore vectorStore,
+        IChatModel chat,
         QdrantSettings qdrant,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        IValidator<AskRequest> validator)
     {
         _embeddings = embeddings;
         _vectorStore = vectorStore;
         _chat = chat;
         _qdrant = qdrant;
         _tenantContext = tenantContext;
+        _validator = validator;
     }
 
     [HttpPost]
     public async Task<ActionResult<AskResponse>> Ask([FromBody] AskRequest req, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(req.Question))
-            return BadRequest("question is required");
+        // Validate request using FluentValidation
+        var validationResult = await _validator.ValidateAsync(req, ct);
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException(validationResult.Errors);
+        }
 
         var embeddingResult = await _embeddings.EmbedAsync(req.Question, ct);
         

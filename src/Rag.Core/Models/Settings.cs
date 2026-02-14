@@ -73,3 +73,45 @@ public sealed class JwtSettings
     /// </summary>
     public bool Enabled { get; set; } = false;
 }
+
+/// <summary>
+/// PHASE 6: CORS configuration settings for cross-origin requests.
+/// </summary>
+public sealed class CorsSettings
+{
+    /// <summary>
+    /// List of allowed origins for CORS requests (e.g., ["https://app.example.com"]).
+    /// </summary>
+    public List<string> AllowedOrigins { get; set; } = new();
+
+    /// <summary>
+    /// Allow credentials (cookies, authorization headers) in CORS requests.
+    /// </summary>
+    public bool AllowCredentials { get; set; } = true;
+
+    /// <summary>
+    /// Max age (in seconds) for preflight request caching.
+    /// </summary>
+    public int MaxAge { get; set; } = 3600;
+}
+
+/// <summary>
+/// PHASE 6: Validation configuration settings.
+/// </summary>
+public sealed class ValidationSettings
+{
+    /// <summary>
+    /// Maximum allowed question length in characters.
+    /// </summary>
+    public int MaxQuestionLength { get; set; } = 500;
+
+    /// <summary>
+    /// Maximum file size in bytes for document uploads.
+    /// </summary>
+    public long MaxFileSize { get; set; } = 10485760; // 10 MB
+
+    /// <summary>
+    /// Allowed file types for document uploads.
+    /// </summary>
+    public List<string> AllowedFileTypes { get; set; } = new() { ".pdf", ".txt", ".md" };
+}

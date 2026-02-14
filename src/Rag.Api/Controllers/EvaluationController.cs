@@ -6,7 +6,7 @@ using Rag.Core.Services;
 namespace Rag.Api.Controllers;
 
 [ApiController]
-[Route("evaluation")]
+[Route("api/v1/evaluation")]
 public class EvaluationController : ControllerBase
 {
     private readonly IEvaluationTestCaseStore _testCaseStore;

@@ -11,7 +11,7 @@ using Rag.Core.Text;
 namespace Rag.Api.Controllers;
 
 [ApiController]
-[Route("ingest")]
+[Route("api/v1/ingest")]
 [EnableRateLimiting(RateLimitingConfiguration.IngestPolicy)]
 public sealed class IngestController : ControllerBase
 {

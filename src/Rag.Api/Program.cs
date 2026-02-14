@@ -1,3 +1,4 @@
+using FluentValidation;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Rag.Api.Configuration;
@@ -20,6 +21,8 @@ builder.Services.Configure<SecuritySettings>(builder.Configuration.GetSection("S
 builder.Services.Configure<MultiTenancySettings>(builder.Configuration.GetSection("MultiTenancy"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<CostTrackingSettings>(builder.Configuration.GetSection("CostTracking"));
+builder.Services.Configure<CorsSettings>(builder.Configuration.GetSection("Cors"));
+builder.Services.Configure<ValidationSettings>(builder.Configuration.GetSection("Validation"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -88,17 +91,37 @@ builder.Services.AddSingleton<IVectorStore, QdrantVectorStore>();
 // ⚡ PHASE 1 - Hardening: Rate Limiting
 builder.Services.AddRagRateLimiting(builder.Configuration);
 
-// CORS configuration for frontend
+// 🔐 PHASE 6 - Security Hardening: Configuration-driven CORS
+var corsSettings = builder.Configuration.GetSection("Cors").Get<CorsSettings>() ?? new CorsSettings();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002")
-              .AllowAnyMethod()
+        if (corsSettings.AllowedOrigins.Count > 0)
+        {
+            policy.WithOrigins(corsSettings.AllowedOrigins.ToArray());
+        }
+        else
+        {
+            // Fallback to localhost for development
+            policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002");
+        }
+
+        policy.AllowAnyMethod()
               .AllowAnyHeader()
-              .WithExposedHeaders("X-Total-Cost", "X-Request-Id");
+              .WithExposedHeaders("X-Total-Cost", "X-Request-Id", "X-Correlation-Id");
+
+        if (corsSettings.AllowCredentials)
+        {
+            policy.AllowCredentials();
+        }
+
+        policy.SetPreflightMaxAge(TimeSpan.FromSeconds(corsSettings.MaxAge));
     });
 });
+
+// 🔐 PHASE 6 - Security Hardening: FluentValidation
+builder.Services.AddValidatorsFromAssemblyContaining<Rag.Api.Validation.AskRequestValidator>();
 
 builder.Services.AddControllers();
 
@@ -163,6 +186,12 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(payload);
     });
 });
+
+// 🔐 PHASE 6 - Security Hardening: Security Headers
+app.UseSecurityHeaders();
+
+// 🔐 PHASE 6 - Security Hardening: Validation
+app.UseValidation();
 
 // CORS - Must be before authentication
 app.UseCors("AllowFrontend");

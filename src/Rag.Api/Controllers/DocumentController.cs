@@ -8,7 +8,7 @@ using Rag.Core.Services;
 namespace Rag.Api.Controllers;
 
 [ApiController]
-[Route("documents")]
+[Route("api/v1/documents")]
 [EnableRateLimiting(RateLimitingConfiguration.IngestPolicy)]
 public sealed class DocumentController : ControllerBase
 {
