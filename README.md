@@ -5,13 +5,15 @@ A comprehensive, production-ready Retrieval-Augmented Generation (RAG) system bu
 ## 🌟 Overview
 
 This is **not just a RAG system** - it's a complete AI platform with:
+- ✅ **Modern React frontend** with ChatGPT-like UI
 - ✅ Enterprise-grade RAG with multi-tenancy and security
 - ✅ PDF processing and background job management
 - ✅ RAG quality evaluation and hallucination detection
 - ✅ **Autonomous AI agent with tool-calling capabilities**
 - ✅ Codebase ingestion and AI-powered code understanding
 - ✅ GitHub integration for research and code search
-**What makes this special**: 99% of RAG implementations are basic Q&A systems. This is a **production-grade AI agent platform** with enterprise features, quality tracking, and extensible tool architecture.
+
+**What makes this special**: 99% of RAG implementations are basic Q&A systems. This is a **production-grade AI agent platform** with enterprise features, quality tracking, extensible tool architecture, and a **polished user interface** ready for end users.
 
 ## 🏗️ Architecture
 
@@ -672,15 +674,31 @@ This API is designed to be consumed by any frontend framework. See complete fron
 
 ## 🚀 Getting Started
 
+This guide will help you run the complete application including both the backend API and the React frontend.
+
 ### Prerequisites
+
+**Backend:**
 - .NET 10 SDK
 - Qdrant (Docker: `docker run -p 6333:6333 qdrant/qdrant`)
 - OpenAI API key
 - Anthropic API key (Claude)
 
-### Configuration
+**Frontend:**
+- Node.js 18+ and npm
 
-Update `appsettings.json`:
+### Step 1: Start Qdrant Vector Database
+
+```bash
+# Run Qdrant in Docker
+docker run -p 6333:6333 qdrant/qdrant
+
+# Qdrant will be available at http://localhost:6333
+```
+
+### Step 2: Configure Backend API
+
+Update `src/Rag.Api/appsettings.json`:
 ```json
 {
   "Qdrant": {
@@ -700,7 +718,7 @@ Update `appsettings.json`:
 }
 ```
 
-### Run the API
+### Step 3: Run the Backend API
 
 ```bash
 # Restore dependencies
@@ -713,18 +731,108 @@ dotnet build
 dotnet run --project src/Rag.Api
 
 # API available at: http://localhost:5129
+# Swagger UI: http://localhost:5129/swagger
 # Hangfire dashboard: http://localhost:5129/hangfire
+# Health check: http://localhost:5129/health
 ```
 
-### Test with Examples
+**Logs:** Backend logs are written to `src/Rag.Api/logs/rag-api-{date}.log`
+
+### Step 4: Configure Frontend
+
+```bash
+# Navigate to frontend directory
+cd src/Rag.Web
+
+# Install dependencies
+npm install
+
+# Copy environment file (optional - uses defaults)
+cp .env.example .env
+```
+
+Edit `.env` if needed (defaults work out of the box):
+```env
+VITE_API_URL=http://localhost:5129
+VITE_API_KEY=secure_password
+```
+
+### Step 5: Run the Frontend
+
+```bash
+# Start development server (from src/Rag.Web)
+npm run dev
+
+# Frontend available at: http://localhost:3000
+```
+
+### Step 6: Use the Application 🎉
+
+Open your browser to **http://localhost:3000**
+
+**Default Demo Accounts:**
+- **Admin**: admin@company.com / Admin123!
+- **Mayank**: mayank@company.com / Mayank123!
+- **John**: john@company.com / John123!
+- **Sarah**: sarah@company.com / Sarah123!
+
+**Quick Start Guide:**
+
+1. **Upload a Document:**
+   - Click the paperclip icon (📎) in the chat input
+   - Drag & drop a PDF or TXT file
+   - Click "Upload Document"
+
+2. **Ask Questions (RAG Mode):**
+   - Type your question in the chat
+   - Get answers with citations from your documents
+   - View source documents with relevance scores
+
+3. **Use Agent Mode:**
+   - Click the bot icon to switch to Agent Mode
+   - Ask complex questions that require research
+   - Watch the AI agent use tools (RAG search, GitHub search, etc.)
+   - See tool calls, reasoning traces, and results
+
+4. **Multi-Tenant Workspaces:**
+   - Click the workspace button in sidebar
+   - Create new workspaces for different projects
+   - Switch between workspaces - data is isolated
+
+### Alternative: Test Backend with HTTP Requests
 
 Use `tests.http` file (38 requests covering all endpoints):
 - Requests 1-12: Basic RAG operations
 - Requests 13-25: Evaluation endpoints
 - Requests 26-38: Agent endpoints
 
+## 📱 Frontend Features
+
+The React frontend (`src/Rag.Web`) provides a modern, ChatGPT-like interface with:
+
+- 🤖 **Dual Mode**: Switch between RAG Mode and Agent Mode
+- 🏢 **Multi-Tenant**: Manage multiple workspaces with isolated data
+- 💬 **ChatGPT-like UI**: Clean, modern chat interface
+- 📁 **File Upload**: Drag-and-drop PDF and text file uploads
+- 🔧 **Tool Visualization**: See AI agent tool usage in real-time
+- 📚 **Citations**: View source documents with relevance scores
+- 💰 **Cost Tracking**: Monitor API costs per query
+- 🎨 **Beautiful Design**: Responsive, accessible, polished UI built with TailwindCSS
+
+**Tech Stack:**
+- React 18 + TypeScript
+- Vite (build tool)
+- TailwindCSS (styling)
+- Zustand (state management)
+- Axios (HTTP client)
+- React Markdown (message rendering)
+- Lucide React (icons)
+
+**For detailed frontend documentation, see:** [src/Rag.Web/README.md](src/Rag.Web/README.md)
+
 ## 📊 Technology Stack
 
+**Backend:**
 - **Framework**: .NET 10
 - **Vector Database**: Qdrant
 - **Embedding Model**: OpenAI text-embedding-3-small
@@ -734,8 +842,19 @@ Use `tests.http` file (38 requests covering all endpoints):
 - **Resilience**: Polly
 - **Authentication**: JWT + API Keys
 
+**Frontend:**
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: TailwindCSS
+- **State Management**: Zustand
+- **HTTP Client**: Axios
+- **Markdown Rendering**: React Markdown
+- **Icons**: Lucide React
+- **File Upload**: React Dropzone
+
 ## 📖 Documentation
 
+- [src/Rag.Web/README.md](src/Rag.Web/README.md) - Frontend documentation and detailed usage guide
 - [TESTING-GUIDE.md](TESTING-GUIDE.md) - Integration testing
 - [PHASE4-EVALUATION-QUALITY.md](PHASE4-EVALUATION-QUALITY.md) - Evaluation system
 - [PHASE5-AGENT-LAYER.md](PHASE5-AGENT-LAYER.md) - Agent architecture
@@ -779,13 +898,14 @@ Use `tests.http` file (38 requests covering all endpoints):
 
 ## 📝 Stats
 
-- **Total LOC**: ~6,000+ lines
-- **Total Files**: 50+ files
+- **Total LOC**: ~10,000+ lines (Backend: 6,000+ | Frontend: 4,000+)
+- **Total Files**: 80+ files
 - **Phases Completed**: 5/5
 - **API Endpoints**: 38+ endpoints
 - **Built-in Tools**: 3 tools
+- **Frontend Components**: 15+ React components
 - **Status**: Production-Ready 🚀
 
 ---
 
-**Built with ❤️ to showcase production-grade RAG + AI Agent architecture**
+**Built with ❤️ to showcase production-grade RAG + AI Agent architecture with a modern UI**

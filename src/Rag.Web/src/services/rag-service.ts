@@ -9,11 +9,11 @@ import {
 
 export class RagService {
   async ingestText(request: IngestRequest): Promise<IngestResponse> {
-    return apiClient.post<IngestResponse>('/ingest', request);
+    return apiClient.post<IngestResponse>('/api/v1/ingest', request);
   }
 
   async ask(request: AskRequest): Promise<AskResponse> {
-    return apiClient.post<AskResponse>('/ask', request);
+    return apiClient.post<AskResponse>('/api/v1/ask', request);
   }
 
   async uploadPdf(
@@ -22,7 +22,7 @@ export class RagService {
     onProgress?: (progress: number) => void
   ): Promise<PdfUploadResponse> {
     return apiClient.uploadFile<PdfUploadResponse>(
-      '/documents/upload-pdf',
+      '/api/v1/documents/upload-pdf',
       file,
       { documentId },
       onProgress
@@ -30,14 +30,14 @@ export class RagService {
   }
 
   async deleteDocument(documentId: string): Promise<void> {
-    return apiClient.delete(`/documents/${documentId}`);
+    return apiClient.delete(`/api/v1/documents/${documentId}`);
   }
 
   async updateDocument(
     documentId: string,
     text: string
   ): Promise<any> {
-    return apiClient.put(`/documents/${documentId}`, {
+    return apiClient.put(`/api/v1/documents/${documentId}`, {
       documentId,
       text,
     });

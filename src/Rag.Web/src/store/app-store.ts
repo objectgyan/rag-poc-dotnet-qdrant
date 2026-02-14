@@ -59,7 +59,7 @@ export const useAppStore = create<AppState>()(
             tenantName: string;
             role: string;
             tier: string;
-          }>('/authentication/login', { username, password });
+          }>('/api/v1/authentication/login', { username, password });
 
           const { token, userId, username: userName, tenantId, tenantName, role, tier } = response;
 

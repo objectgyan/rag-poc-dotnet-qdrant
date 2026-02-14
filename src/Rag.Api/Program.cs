@@ -153,11 +153,9 @@ builder.Services.AddValidatorsFromAssemblyContaining<Rag.Api.Validation.AskReque
 
 // 📊 PHASE 7 - Observability: Health Checks
 builder.Services.AddHealthChecks()
-    .AddQdrant(sp =>
-    {
-        var settings = sp.GetRequiredService<QdrantSettings>();
-        return new Qdrant.Client.QdrantClient(settings.Url);
-    }, name: "qdrant", tags: new[] { "database", "vector" })
+    .AddCheck<Rag.Api.HealthChecks.QdrantHealthCheck>(
+        "qdrant",
+        tags: new[] { "database", "vector" })
     .AddCheck<Rag.Api.HealthChecks.ClaudeHealthCheck>(
         "claude",
         tags: new[] { "api", "llm" })
