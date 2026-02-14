@@ -10,8 +10,36 @@ using Rag.Core.Services;
 using Rag.Infrastructure.Claude;
 using Rag.Infrastructure.OpenAI;
 using Rag.Infrastructure.Qdrant;
+using Serilog;
+using Serilog.Events;
+
+// 📊 PHASE 7 - Observability: Configure Serilog for structured logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .Enrich.WithProperty("Application", "RAG-API")
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "logs/rag-api-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+
+try
+{
+    Log.Information("Starting RAG API application");
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 📊 PHASE 7 - Observability: Use Serilog for logging
+builder.Host.UseSerilog();
 
 // Bind settings
 builder.Services.Configure<QdrantSettings>(builder.Configuration.GetSection("Qdrant"));
@@ -123,6 +151,20 @@ builder.Services.AddCors(options =>
 // 🔐 PHASE 6 - Security Hardening: FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<Rag.Api.Validation.AskRequestValidator>();
 
+// 📊 PHASE 7 - Observability: Health Checks
+builder.Services.AddHealthChecks()
+    .AddQdrant(sp =>
+    {
+        var settings = sp.GetRequiredService<QdrantSettings>();
+        return new Qdrant.Client.QdrantClient(settings.Url);
+    }, name: "qdrant", tags: new[] { "database", "vector" })
+    .AddCheck<Rag.Api.HealthChecks.ClaudeHealthCheck>(
+        "claude",
+        tags: new[] { "api", "llm" })
+    .AddCheck<Rag.Api.HealthChecks.OpenAiHealthCheck>(
+        "openai",
+        tags: new[] { "api", "embeddings" });
+
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -166,26 +208,8 @@ using (var scope = app.Services.CreateScope())
     ));
 }
 
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
-        var ex = feature?.Error;
-
-        context.Response.ContentType = "application/json";
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-
-        var payload = new
-        {
-            error = "internal_error",
-            message = ex?.Message,
-            traceId = context.TraceIdentifier
-        };
-
-        await context.Response.WriteAsJsonAsync(payload);
-    });
-});
+// 📊 PHASE 7 - Observability: Global Exception Handling with RFC 7807 ProblemDetails
+app.UseGlobalExceptionHandler();
 
 // 🔐 PHASE 6 - Security Hardening: Security Headers
 app.UseSecurityHeaders();
@@ -218,9 +242,56 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.MapGet("/", () => "RAG API Running");
+
+// 📊 PHASE 7 - Observability: Health Check Endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            totalDuration = report.TotalDuration.ToString(),
+            entries = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.ToString(),
+                description = e.Value.Description,
+                exception = e.Value.Exception?.Message
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
+
+// Basic liveness probe (no dependency checks)
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false // No checks, just returns 200 OK if app is running
+});
+
+// Readiness probe (checks dependencies)
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("database") || check.Tags.Contains("vector")
+});
+
 app.MapControllers();
 
 app.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 // Make Program accessible for integration testing
 public partial class Program { }
