@@ -141,8 +141,6 @@ graph TB
 
 Multi-tenant JWT authentication with password-based login. Users are mapped to tenants, and all subsequent requests include the JWT token for authorization.
 
-![Authentication Flow](diagrams/authentication-flow.png)
-
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -187,8 +185,6 @@ sequenceDiagram
 ### 3. RAG Query Flow
 
 The complete pipeline from question to answer with citations. Shows semantic search, context building, and LLM response generation.
-
-![RAG Query Flow](diagrams/rag-query-flow.png)
 
 
 <summary>📝 View Mermaid Source</summary>
@@ -242,8 +238,6 @@ sequenceDiagram
 ### 4. Multi-Tenant Data Isolation
 
 Shows how tenant data is isolated in the vector store. Each user's JWT token contains their tenant ID, which filters all queries and ingestion operations.
-
-![Multi-Tenant Data Isolation](diagrams/multi-tenant-isolation.png)
 
 
 <summary>📝 View Mermaid Source</summary>
@@ -318,8 +312,6 @@ graph TB
 
 The agent can reason through multi-step problems using available tools (RAG search, GitHub repos, GitHub code search).
 
-![Agent Workflow](diagrams/agent-workflow.png)
-
 
 <summary>📝 View Mermaid Source</summary>
 
@@ -385,8 +377,6 @@ flowchart TD
 ### 6. Document Ingestion Pipeline
 
 Background job processing for PDF and text document ingestion using Hangfire.
-
-![Document Ingestion Pipeline](diagrams/document-ingestion.png)
 
 
 <summary>📝 View Mermaid Source</summary>
