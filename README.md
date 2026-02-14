@@ -278,9 +278,9 @@ graph TB
         Collection[(rag_chunks collection)]
         
         subgraph "Isolated Documents"
-            DocA1[📄 resume.pdf<br/>tenant: tenant-mayank<br/>chunks: 15]
-            DocA2[📄 project.pdf<br/>tenant: tenant-mayank<br/>chunks: 23]
-            DocB1[📄 notes.pdf<br/>tenant: tenant-john<br/>chunks: 8]
+            DocA1[resume.pdf<br/>tenant: tenant-mayank<br/>chunks: 15]
+            DocA2[project.pdf<br/>tenant: tenant-mayank<br/>chunks: 23]
+            DocB1[notes.pdf<br/>tenant: tenant-john<br/>chunks: 8]
         end
     end
     
@@ -346,9 +346,9 @@ flowchart TD
     ParseTools --> ExecuteTools[Execute tools in parallel]
     
     subgraph "Available Tools"
-        RagSearch[🔍 rag_search<br/>Search user's documents]
-        GitHubRepos[🏢 github_search_repositories<br/>Find relevant repos]
-        GitHubCode[💻 github_search_code<br/>Search code across GitHub]
+        RagSearch[rag_search<br/>Search user's documents]
+        GitHubRepos[github_search_repositories<br/>Find relevant repos]
+        GitHubCode[github_search_code<br/>Search code across GitHub]
     end
     
     ExecuteTools --> RagSearch

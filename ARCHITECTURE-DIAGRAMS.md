@@ -238,10 +238,14 @@ flowchart TD
     ParseTools --> ExecuteTools[Execute tools in parallel]
     
     subgraph "Tool Execution"
-        ExecuteTools --> RagSearch[RAG Search Tool<br/>Search documents]
-        ExecuteTools --> GitHubRepos[GitHub Repos Tool<br/>Search repositories]
-        ExecuteTools --> GitHubCode[GitHub Code Tool<br/>Search code]
+        RagSearch[RAG Search Tool<br/>Search documents]
+        GitHubRepos[GitHub Repos Tool<br/>Search repositories]
+        GitHubCode[GitHub Code Tool<br/>Search code across GitHub]
     end
+    
+    ExecuteTools --> RagSearch
+    ExecuteTools --> GitHubRepos
+    ExecuteTools --> GitHubCode
     
     RagSearch --> Results1[Search results]
     GitHubRepos --> Results1
@@ -503,11 +507,13 @@ graph TB
     style QdrantCloud fill:#a78bfa
     style OpenAIAPI fill:#f87171
     style ClaudeAPI fill:#f87171
-    
-    note1[Scalability:<br/>- Frontend: Edge CDN<br/>- API: Horizontal scaling<br/>- Qdrant: Managed cloud<br/>- Jobs: Background workers]
-    note2[Security:<br/>- JWT tokens (8h expiry)<br/>- HTTPS only<br/>- Tenant isolation<br/>- API key rotation]
-    note3[Monitoring:<br/>- Application Insights<br/>- Cost tracking per query<br/>- Error logging<br/>- Performance metrics]
 ```
+
+**Deployment Notes:**
+
+- **Scalability**: Frontend on Edge CDN, API with horizontal scaling, Qdrant managed cloud, Background workers for jobs
+- **Security**: JWT tokens (8h expiry), HTTPS only, Tenant isolation, API key rotation
+- **Monitoring**: Application Insights, Cost tracking per query, Error logging, Performance metrics
 
 ---
 
