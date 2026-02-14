@@ -262,7 +262,7 @@ flowchart TD
     FinalAnswer --> CalculateCost[Calculate total cost<br/>and metrics]
     MaxReached --> CalculateCost
     
-    CalculateCost --> Response[Return AgentChatResponse<br/>{answer, toolCalls, metrics}]
+    CalculateCost --> Response["Return AgentChatResponse with answer, toolCalls, metrics"]
     Response --> End([Display to user])
     
     style Start fill:#60a5fa
