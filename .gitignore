@@ -417,7 +417,6 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
+src/Rag.Api/appsettings.Development.json
 # Claude Code local configuration
 .claude/
-
-src/Rag.Api/appsettings.Development.json
