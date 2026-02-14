@@ -3,6 +3,7 @@ using Hangfire.MemoryStorage;
 using Rag.Api.Configuration;
 using Rag.Api.Middleware;
 using Rag.Core.Abstractions;
+using Rag.Core.Agent;
 using Rag.Core.Models;
 using Rag.Core.Services;
 using Rag.Infrastructure.Claude;
@@ -51,6 +52,50 @@ builder.Services.AddSingleton<IEvaluationTestCaseStore, Rag.Infrastructure.Evalu
 builder.Services.AddSingleton<Rag.Infrastructure.Evaluation.EvaluationRunStore>();
 builder.Services.AddSingleton<IHallucinationDetector, Rag.Infrastructure.Evaluation.LlmHallucinationDetector>();
 builder.Services.AddSingleton<IEvaluationService, Rag.Infrastructure.Evaluation.RagEvaluationService>();
+
+// 🤖 PHASE 5 - Agent Layer: Tool-Calling Architecture
+builder.Services.AddSingleton<IToolRegistry, Rag.Infrastructure.Agent.ToolRegistry>();
+builder.Services.AddSingleton<IToolExecutor, Rag.Infrastructure.Agent.ToolExecutor>();
+builder.Services.AddSingleton<IAgentOrchestrator, Rag.Infrastructure.Agent.AgentOrchestrator>();
+builder.Services.AddSingleton<ICodebaseIngestionService, Rag.Infrastructure.Agent.CodebaseIngestionService>();
+
+// Register built-in tools
+builder.Services.AddSingleton(sp =>
+{
+    var registry = sp.GetRequiredService<IToolRegistry>();
+    var embeddingModel = sp.GetRequiredService<IEmbeddingModel>();
+    var vectorStore = sp.GetRequiredService<IVectorStore>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+
+    // RAG Search Tool
+    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore);
+    registry.RegisterTool(ragTool, new Rag.Core.Agent.ToolMetadata(
+        ragTool.Name,
+        ragTool.Description,
+        Rag.Core.Agent.ToolCategory.RAG,
+        new List<string> { "search", "rag", "documents", "retrieval" }
+    ));
+
+    // GitHub Search Repositories Tool
+    var githubRepoTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchRepositoriesTool(httpClientFactory);
+    registry.RegisterTool(githubRepoTool, new Rag.Core.Agent.ToolMetadata(
+        githubRepoTool.Name,
+        githubRepoTool.Description,
+        Rag.Core.Agent.ToolCategory.GitHub,
+        new List<string> { "github", "repositories", "search" }
+    ));
+
+    // GitHub Search Code Tool
+    var githubCodeTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchCodeTool(httpClientFactory);
+    registry.RegisterTool(githubCodeTool, new Rag.Core.Agent.ToolMetadata(
+        githubCodeTool.Name,
+        githubCodeTool.Description,
+        Rag.Core.Agent.ToolCategory.GitHub,
+        new List<string> { "github", "code", "search", "examples" }
+    ));
+
+    return registry;
+});
 
 // Configure Hangfire for background job processing
 builder.Services.AddHangfire(config => config

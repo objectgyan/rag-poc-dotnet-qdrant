@@ -1,0 +1,80 @@
+[
+  {
+    "name": "Simple RAG Query",
+    "description": "Agent uses RAG tool to search documents",
+    "message": "What is Qdrant and how does it work? Search the documentation to answer.",
+    "expected_tools": ["rag_search"],
+    "config": {
+      "max_tool_calls": 3,
+      "use_rag_for_context": true
+    }
+  },
+  {
+    "name": "GitHub Repository Search",
+    "description": "Search for vector database repos on GitHub",
+    "message": "Find me the top 5 most starred vector database repositories on GitHub",
+    "expected_tools": ["github_search_repositories"],
+    "config": {
+      "max_tool_calls": 2,
+      "use_rag_for_context": false
+    }
+  },
+  {
+    "name": "Code Search on GitHub",
+    "description": "Find code examples on GitHub",
+    "message": "Show me examples of embedding generation code in Python on GitHub",
+    "expected_tools": ["github_search_code"],
+    "config": {
+      "max_tool_calls": 2
+    }
+  },
+  {
+    "name": "Multi-Step RAG + GitHub",
+    "description": "Agent combines RAG and GitHub search",
+    "message": "First search our documentation about vector databases, then find similar open source projects on GitHub",
+    "expected_tools": ["rag_search", "github_search_repositories"],
+    "config": {
+      "max_tool_calls": 5,
+      "allow_parallel_tool_calls": false
+    }
+  },
+  {
+    "name": "Complex Research Task",
+    "description": "Multi-tool research combining RAG and GitHub",
+    "message": "Research how Qdrant compares to other vector databases. First check our docs, then search GitHub for alternatives, and finally search for code examples.",
+    "expected_tools": ["rag_search", "github_search_repositories", "github_search_code"],
+    "config": {
+      "max_tool_calls": 5,
+      "enable_chain_of_thought": true
+    }
+  },
+  {
+    "name": "Parallel Tool Execution",
+    "description": "Agent executes multiple tools in parallel",
+    "message": "Search for 'machine learning' in both our documentation and GitHub repositories at the same time",
+    "expected_tools": ["rag_search", "github_search_repositories"],
+    "config": {
+      "max_tool_calls": 5,
+      "allow_parallel_tool_calls": true
+    }
+  },
+  {
+    "name": "No Tool Required",
+    "description": "Agent answers directly without tools",
+    "message": "What is 2 + 2? Just calculate it.",
+    "expected_tools": [],
+    "config": {
+      "max_tool_calls": 3
+    }
+  },
+  {
+    "name": "Codebase Question",
+    "description": "After ingesting a codebase, ask questions about it",
+    "message": "What classes are defined in this codebase and what do they do?",
+    "expected_tools": ["rag_search"],
+    "prerequisites": "Must ingest a codebase first using POST /agent/ingest-codebase",
+    "config": {
+      "use_rag_for_context": true
+    }
+  }
+]

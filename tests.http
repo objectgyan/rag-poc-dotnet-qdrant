@@ -357,3 +357,224 @@ X-API-Key: {{apiKey}}
 # Step 7: Re-run evaluation and compare results
 
 ###
+
+###############################################################################
+### PHASE 5: AGENT LAYER - TOOL-CALLING & ADVANCED AI
+###############################################################################
+
+### 26. Chat with Agent (Simple RAG Query)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "message": "What is Qdrant and how does it work? Search the documentation to answer.",
+  "config": {
+    "maxToolCalls": 3,
+    "useRagForContext": true,
+    "enableChainOfThought": true
+  }
+}
+
+###
+
+### 27. Chat with Agent (GitHub Repository Search)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "message": "Find me the top 5 most starred vector database repositories on GitHub",
+  "config": {
+    "maxToolCalls": 2,
+    "useRagForContext": false
+  }
+}
+
+###
+
+### 28. Chat with Agent (GitHub Code Search)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "message": "Show me examples of embedding generation code in Python on GitHub",
+  "config": {
+    "maxToolCalls": 3
+  }
+}
+
+###
+
+### 29. Chat with Agent (Multi-Step Research)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "message": "Research how Qdrant compares to other vector databases. First check our docs, then search GitHub for alternatives.",
+  "config": {
+    "maxToolCalls": 5,
+    "allowParallelToolCalls": false,
+    "enableChainOfThought": true
+  }
+}
+
+###
+
+### 30. Chat with Agent (Parallel Tool Execution)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "message": "Search for 'machine learning' in both our documentation and GitHub repositories at the same time",
+  "config": {
+    "maxToolCalls": 5,
+    "allowParallelToolCalls": true
+  }
+}
+
+###
+
+### 31. Chat with Agent (With Conversation History)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "message": "What about its performance characteristics?",
+  "conversationHistory": [
+    {
+      "role": "user",
+      "content": "Tell me about Qdrant"
+    },
+    {
+      "role": "assistant",
+      "content": "Qdrant is a vector database designed for similarity search..."
+    }
+  ],
+  "config": {
+    "maxToolCalls": 3,
+    "useRagForContext": true
+  }
+}
+
+###
+
+### 32. Get All Available Tools
+GET {{baseUrl}}/agent/tools
+X-API-Key: {{apiKey}}
+
+###
+
+### 33. Get Specific Tool Details
+GET {{baseUrl}}/agent/tools/rag_search
+X-API-Key: {{apiKey}}
+
+###
+
+GET {{baseUrl}}/agent/tools/github_search_repositories
+X-API-Key: {{apiKey}}
+
+###
+
+### 34. Ingest Local Codebase
+POST {{baseUrl}}/agent/ingest-codebase
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "directoryPath": "D:\\Mayank\\Learning\\RAG\\rag-poc-dotnet-qdrant\\src",
+  "includePatterns": ["*.cs"],
+  "excludePatterns": ["*/bin/*", "*/obj/*"],
+  "parseSemanticStructure": true,
+  "chunkSize": 1000
+}
+
+###
+
+### 35. Search Ingested Code
+POST {{baseUrl}}/agent/search-code
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "query": "How does the RAG search work? Show me the implementation",
+  "topK": 5
+}
+
+###
+
+### 36. Get Code Context
+GET {{baseUrl}}/agent/code-context?filePath=D:/Mayank/Learning/RAG/rag-poc-dotnet-qdrant/src/Rag.Api/Controllers/AskController.cs&startLine=1&endLine=50
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+###
+
+###############################################################################
+### AGENT WORKFLOW EXAMPLES
+###############################################################################
+
+# WORKFLOW 1: Simple RAG Agent Query
+# 1. Ingest document (request #2)
+# 2. Ask agent to search and answer (request #26)
+# 3. Agent automatically uses rag_search tool
+
+# WORKFLOW 2: GitHub Research
+# 1. Ask agent to find repos (request #27)
+# 2. Ask agent to find code examples (request #28)
+# 3. Agent uses GitHub tools
+
+# WORKFLOW 3: Multi-Tool Research
+# 1. Ask complex question requiring multiple tools (request #29)
+# 2. Agent orchestrates: RAG → GitHub Search → Synthesis
+
+# WORKFLOW 4: Codebase Understanding
+# 1. Ingest your codebase (request #34)
+# 2. Search code (request #35)
+# 3. Get code context (request #36)
+# 4. Ask agent questions about your code (request #26)
+
+###
+
+###############################################################################
+### ADVANCED AGENT FEATURES
+###############################################################################
+
+### Custom System Prompt
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "message": "Explain vector databases like I'm 5 years old",
+  "config": {
+    "systemPrompt": "You are a teacher explaining complex topics to children. Use simple language, analogies, and fun examples.",
+    "maxToolCalls": 2
+  }
+}
+
+###
+
+### Agent with No Tool Usage (Direct Answer)
+POST {{baseUrl}}/agent/chat
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "message": "What is 2 + 2?",
+  "config": {
+    "maxToolCalls": 1
+  }
+}
+
+###
