@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Rag.Core.Abstractions;
 using Rag.Core.Agent;
 using Rag.Core.Text;
@@ -14,11 +15,16 @@ public class CodebaseIngestionService : ICodebaseIngestionService
 {
     private readonly IEmbeddingModel _embeddingModel;
     private readonly IVectorStore _vectorStore;
+    private readonly ILogger<CodebaseIngestionService> _logger;
 
-    public CodebaseIngestionService(IEmbeddingModel embeddingModel, IVectorStore vectorStore)
+    public CodebaseIngestionService(
+        IEmbeddingModel embeddingModel,
+        IVectorStore vectorStore,
+        ILogger<CodebaseIngestionService> logger)
     {
         _embeddingModel = embeddingModel;
         _vectorStore = vectorStore;
+        _logger = logger;
     }
 
     public async Task<CodebaseIngestionResult> IngestDirectoryAsync(
@@ -100,8 +106,8 @@ public class CodebaseIngestionService : ICodebaseIngestionService
             }
             catch (Exception ex)
             {
-                // Log error but continue processing other files
-                Console.WriteLine($"Error processing {filePath}: {ex.Message}");
+                // 📊 PHASE 7 - Observability: Structured logging with context
+                _logger.LogError(ex, "Error processing file {FilePath}: {ErrorMessage}", filePath, ex.Message);
             }
         }
 
