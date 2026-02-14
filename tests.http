@@ -1,0 +1,359 @@
+### RAG API Testing Suite
+### Use this file to manually test endpoints in VS Code with REST Client extension
+### or in Visual Studio with built-in .http support
+
+@baseUrl = http://localhost:5129
+@apiKey = secure_password
+@tenantId = test-tenant
+
+### 1. Health Check (if available)
+GET {{baseUrl}}/
+
+###
+
+### 2. Ingest Text Document (Synchronous)
+POST {{baseUrl}}/ingest
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "documentId": "test-doc-001",
+  "text": "Qdrant is a vector database designed for similarity search. It supports high-dimensional vectors and provides efficient nearest neighbor search using HNSW algorithm. Qdrant can handle billions of vectors and offers metadata filtering capabilities."
+}
+
+###
+
+### 3. Ask Question (RAG Query)
+POST {{baseUrl}}/ask
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "question": "What is Qdrant and what does it do?",
+  "topK": 3
+}
+
+###
+
+### 4. Upload PDF Document (Background Job)
+POST {{baseUrl}}/documents/upload-pdf
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+# Note: You need to manually select a PDF file when using REST Client
+# In VS Code, use the file picker that appears
+# For command line testing, use curl instead (see below)
+
+###
+
+### 5. Delete Document
+DELETE {{baseUrl}}/documents/test-doc-001
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+###
+
+### 6. Update Document (Background Job)
+PUT {{baseUrl}}/documents/test-doc-001
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "documentId": "test-doc-001",
+  "text": "Updated content: Qdrant now supports multiple distance metrics including Cosine, Euclidean, and Dot Product. It also provides quantization for memory efficiency."
+}
+
+###
+
+### 7. Test Multi-Tenancy - Tenant A
+POST {{baseUrl}}/ingest
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: tenant-a
+
+{
+  "documentId": "tenant-a-doc",
+  "text": "Tenant A secret information: Project Alpha is launching in Q2 2026."
+}
+
+###
+
+### 8. Test Multi-Tenancy - Tenant B
+POST {{baseUrl}}/ingest
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: tenant-b
+
+{
+  "documentId": "tenant-b-doc",
+  "text": "Tenant B secret information: Project Beta is launching in Q3 2026."
+}
+
+###
+
+### 9. Query as Tenant A (should not see Tenant B data)
+POST {{baseUrl}}/ask
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: tenant-a
+
+{
+  "question": "When is the project launching?",
+  "topK": 3
+}
+
+###
+
+### 10. Query as Tenant B (should not see Tenant A data)
+POST {{baseUrl}}/ask
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: tenant-b
+
+{
+  "question": "When is the project launching?",
+  "topK": 3
+}
+
+###
+
+### 11. Test Without API Key (Should Return 401)
+POST {{baseUrl}}/ingest
+Content-Type: application/json
+X-Tenant-Id: {{tenantId}}
+
+{
+  "documentId": "test",
+  "text": "This should fail"
+}
+
+###
+
+### 12. Test Invalid Request (Missing required field)
+POST {{baseUrl}}/ingest
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+X-Tenant-Id: {{tenantId}}
+
+{
+  "documentId": "test-doc"
+}
+
+###
+
+### CURL Commands for PDF Upload Testing ###
+
+# Windows PowerShell:
+# curl -X POST http://localhost:5129/documents/upload-pdf `
+#   -H "X-API-Key: secure_password" `
+#   -H "X-Tenant-Id: test-tenant" `
+#   -F "file=@sample.pdf" `
+#   -F "documentId=test-pdf-001"
+
+# Linux/macOS:
+# curl -X POST http://localhost:5129/documents/upload-pdf \
+#   -H "X-API-Key: secure_password" \
+#   -H "X-Tenant-Id: test-tenant" \
+#   -F "file=@sample.pdf" \
+#   -F "documentId=test-pdf-001"
+
+###
+
+### Access Hangfire Dashboard
+# Open in browser: http://localhost:5129/hangfire
+# Monitor background jobs, view job history, and check for failures
+
+###
+
+### Sample Test Workflow ###
+
+# 1. Start the API: dotnet run --project src/Rag.Api
+# 2. Open Hangfire dashboard in browser
+# 3. Ingest a test document using request #2
+# 4. Query the document using request #3
+# 5. Upload a PDF using curl command
+# 6. Monitor job in Hangfire dashboard
+# 7. Query the PDF content using request #3
+# 8. Delete the document using request #5
+# 9. Verify deletion by querying again (should return no results)
+
+###
+
+###############################################################################
+### PHASE 4: EVALUATION & QUALITY ENDPOINTS
+###############################################################################
+
+### 13. Create Evaluation Test Case
+POST {{baseUrl}}/evaluation/test-cases
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "id": "test-001",
+  "question": "What is Qdrant?",
+  "expectedAnswer": "Qdrant is a vector database designed for similarity search",
+  "requiredKeywords": ["vector", "database", "similarity", "search"],
+  "expectedDocumentId": "test-doc-001",
+  "category": "basic-knowledge"
+}
+
+###
+
+### 14. Get All Test Cases
+GET {{baseUrl}}/evaluation/test-cases
+X-API-Key: {{apiKey}}
+
+###
+
+### 15. Get Test Cases by Category
+GET {{baseUrl}}/evaluation/test-cases?category=basic-knowledge
+X-API-Key: {{apiKey}}
+
+###
+
+### 16. Get Specific Test Case
+GET {{baseUrl}}/evaluation/test-cases/test-001
+X-API-Key: {{apiKey}}
+
+###
+
+### 17. Update Test Case
+PUT {{baseUrl}}/evaluation/test-cases/test-001
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "question": "What is Qdrant used for?",
+  "expectedAnswer": "Qdrant is a vector database for similarity search and RAG applications",
+  "requiredKeywords": ["vector", "database", "similarity", "RAG"]
+}
+
+###
+
+### 18. Delete Test Case
+DELETE {{baseUrl}}/evaluation/test-cases/test-001
+X-API-Key: {{apiKey}}
+
+###
+
+### 19. Create Multiple Test Cases for Evaluation
+POST {{baseUrl}}/evaluation/test-cases
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "id": "test-002",
+  "question": "What algorithm does Qdrant use for search?",
+  "expectedAnswer": "Qdrant uses the HNSW algorithm for efficient nearest neighbor search",
+  "requiredKeywords": ["HNSW", "algorithm", "nearest neighbor"],
+  "category": "technical"
+}
+
+###
+
+POST {{baseUrl}}/evaluation/test-cases
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "id": "test-003",
+  "question": "How many vectors can Qdrant handle?",
+  "expectedAnswer": "Qdrant can handle billions of vectors",
+  "requiredKeywords": ["billions", "vectors"],
+  "category": "technical"
+}
+
+###
+
+### 20. Run Evaluation (All Test Cases)
+POST {{baseUrl}}/evaluation/run
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "name": "Baseline Evaluation v1",
+  "config": {
+    "minSemanticSimilarity": 0.7,
+    "minKeywordMatch": 0.6,
+    "minCitationAccuracy": 0.8,
+    "maxHallucinationRate": 0.2,
+    "useSemanticEvaluation": true,
+    "useKeywordEvaluation": true,
+    "useLlmAsJudge": false
+  }
+}
+
+###
+
+### 21. Run Evaluation with LLM-as-Judge (Hallucination Detection)
+POST {{baseUrl}}/evaluation/run
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "name": "Evaluation with Hallucination Detection",
+  "config": {
+    "minSemanticSimilarity": 0.7,
+    "minKeywordMatch": 0.6,
+    "minCitationAccuracy": 0.8,
+    "maxHallucinationRate": 0.2,
+    "useSemanticEvaluation": true,
+    "useKeywordEvaluation": true,
+    "useLlmAsJudge": true
+  }
+}
+
+###
+
+### 22. Run Evaluation by Category
+POST {{baseUrl}}/evaluation/run
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "name": "Technical Questions Evaluation",
+  "category": "technical",
+  "config": {
+    "minSemanticSimilarity": 0.8,
+    "minKeywordMatch": 0.7,
+    "minCitationAccuracy": 0.9,
+    "maxHallucinationRate": 0.15
+  }
+}
+
+###
+
+### 23. Get Evaluation Run Results
+GET {{baseUrl}}/evaluation/runs/PUT_RUN_ID_HERE
+X-API-Key: {{apiKey}}
+
+###
+
+### 24. Get All Evaluation Runs
+GET {{baseUrl}}/evaluation/runs
+X-API-Key: {{apiKey}}
+
+###
+
+### 25. Get Aggregated Metrics
+GET {{baseUrl}}/evaluation/metrics
+X-API-Key: {{apiKey}}
+
+###
+
+###############################################################################
+### EVALUATION WORKFLOW EXAMPLE
+###############################################################################
+
+# Step 1: Ingest sample document (use request #2)
+# Step 2: Create test cases (use requests #13, #19)
+# Step 3: Run evaluation (use request #20)
+# Step 4: View results (use request #23 with the returned run ID)
+# Step 5: Analyze metrics (use request #25)
+# Step 6: Improve system based on failures
+# Step 7: Re-run evaluation and compare results
+
+###

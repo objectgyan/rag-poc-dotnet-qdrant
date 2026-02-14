@@ -1,0 +1,37 @@
+[
+  {
+    "id": "test-case-001",
+    "question": "What is Qdrant?",
+    "expectedAnswer": "Qdrant is a vector database designed for similarity search. It supports high-dimensional vectors and provides efficient nearest neighbor search.",
+    "requiredKeywords": ["vector", "database", "similarity", "search"],
+    "category": "basic-knowledge"
+  },
+  {
+    "id": "test-case-002",
+    "question": "How does RAG work?",
+    "expectedAnswer": "RAG (Retrieval-Augmented Generation) combines retrieval of relevant context from a knowledge base with language model generation. It first searches for similar documents using vector embeddings, then uses the retrieved context to generate accurate answers.",
+    "requiredKeywords": ["retrieval", "generation", "context", "embeddings"],
+    "category": "technical-concepts"
+  },
+  {
+    "id": "test-case-003",
+    "question": "What are the benefits of multi-tenancy?",
+    "expectedAnswer": "Multi-tenancy provides data isolation between different tenants, allowing multiple organizations to use the same system while keeping their data completely separate. This ensures security, privacy, and cost-effective resource sharing.",
+    "requiredKeywords": ["isolation", "tenant", "security", "privacy"],
+    "category": "architecture"
+  },
+  {
+    "id": "test-case-004",
+    "question": "Why use embeddings for search?",
+    "expectedAnswer": "Embeddings convert text into high-dimensional vectors that capture semantic meaning. This enables similarity search where queries find documents with similar meaning, not just exact keyword matches. It's more intelligent than traditional keyword-based search.",
+    "requiredKeywords": ["semantic", "vector", "similarity", "meaning"],
+    "category": "technical-concepts"
+  },
+  {
+    "id": "test-case-005",
+    "question": "What is hallucination in LLMs?",
+    "expectedAnswer": "Hallucination occurs when a language model generates information that is not grounded in the provided context or training data. It's when the model 'makes up' facts or details that aren't supported by the source material.",
+    "requiredKeywords": ["hallucination", "grounded", "facts", "context"],
+    "category": "quality-concepts"
+  }
+]

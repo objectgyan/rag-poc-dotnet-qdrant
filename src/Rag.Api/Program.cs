@@ -46,6 +46,12 @@ builder.Services.AddSingleton<ICostCalculator, Rag.Infrastructure.Cost.CostCalcu
 builder.Services.AddSingleton<IPdfTextExtractor, Rag.Infrastructure.Pdf.PdfTextExtractor>();
 builder.Services.AddSingleton<IDocumentIngestionService, Rag.Infrastructure.Services.DocumentIngestionService>();
 
+// 🧪 PHASE 4 - Evaluation & Quality
+builder.Services.AddSingleton<IEvaluationTestCaseStore, Rag.Infrastructure.Evaluation.JsonFileTestCaseStore>();
+builder.Services.AddSingleton<Rag.Infrastructure.Evaluation.EvaluationRunStore>();
+builder.Services.AddSingleton<IHallucinationDetector, Rag.Infrastructure.Evaluation.LlmHallucinationDetector>();
+builder.Services.AddSingleton<IEvaluationService, Rag.Infrastructure.Evaluation.RagEvaluationService>();
+
 // Configure Hangfire for background job processing
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -127,3 +133,6 @@ app.MapGet("/", () => "RAG API Running");
 app.MapControllers();
 
 app.Run();
+
+// Make Program accessible for integration testing
+public partial class Program { }
