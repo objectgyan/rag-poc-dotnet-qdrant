@@ -73,9 +73,6 @@ This is **not just a RAG system** - it's a complete AI platform with:
 
 This diagram shows how all components interact in the system, from the React frontend to external services.
 
-![System Architecture](diagrams/system-architecture.png)
-
-<details>
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -138,9 +135,6 @@ graph TB
     style Abstractions fill:#fbbf24
     style JWT fill:#a78bfa
 ```
-
-</details>
-
 ---
 
 ### 2. Authentication Flow
@@ -149,7 +143,6 @@ Multi-tenant JWT authentication with password-based login. Users are mapped to t
 
 ![Authentication Flow](diagrams/authentication-flow.png)
 
-<details>
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -182,8 +175,6 @@ sequenceDiagram
     Note over User,Store: All requests include<br/>Authorization: Bearer {token}
 ```
 
-</details>
-
 **Key Points:**
 - Password-based authentication with SHA256 hashing
 - JWT tokens include user ID, tenant ID, role, and tier
@@ -199,7 +190,7 @@ The complete pipeline from question to answer with citations. Shows semantic sea
 
 ![RAG Query Flow](diagrams/rag-query-flow.png)
 
-<details>
+
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -235,7 +226,7 @@ sequenceDiagram
     Note over User,Claude: Cost: ~$0.0001-0.001/query<br/>Latency: ~1-2 seconds
 ```
 
-</details>
+
 
 **Key Points:**
 - Uses OpenAI's text-embedding-3-small (1536 dimensions) for semantic search
@@ -254,7 +245,7 @@ Shows how tenant data is isolated in the vector store. Each user's JWT token con
 
 ![Multi-Tenant Data Isolation](diagrams/multi-tenant-isolation.png)
 
-<details>
+
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -311,7 +302,7 @@ graph TB
     style DocB1 fill:#d1fae5
 ```
 
-</details>
+
 
 **Key Points:**
 - Each JWT token contains a `tenant_id` claim
@@ -329,7 +320,7 @@ The agent can reason through multi-step problems using available tools (RAG sear
 
 ![Agent Workflow](diagrams/agent-workflow.png)
 
-<details>
+
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -378,7 +369,7 @@ flowchart TD
     style CheckLimit fill:#f87171
 ```
 
-</details>
+
 
 **Key Points:**
 - Agent uses Claude's native tool calling (Anthropic format)
@@ -397,7 +388,7 @@ Background job processing for PDF and text document ingestion using Hangfire.
 
 ![Document Ingestion Pipeline](diagrams/document-ingestion.png)
 
-<details>
+
 <summary>📝 View Mermaid Source</summary>
 
 ```mermaid
@@ -450,7 +441,7 @@ stateDiagram-v2
     end note
 ```
 
-</details>
+
 
 **Key Points:**
 - Asynchronous processing with Hangfire (job queue)
