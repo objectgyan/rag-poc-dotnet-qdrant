@@ -39,7 +39,7 @@ public class RagSearchTool : ITool
         var embedding = embeddingResult.Embedding; // Keep as float[]
 
         // Search
-        var results = await _vectorStore.SearchAsync("rag_collection", embedding, topK, tenantId, cancellationToken);
+        var results = await _vectorStore.SearchAsync("rag_chunks", embedding, topK, tenantId, cancellationToken);
 
         if (results.Count == 0)
         {

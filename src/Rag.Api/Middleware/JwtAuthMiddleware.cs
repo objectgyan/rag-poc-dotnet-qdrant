@@ -33,10 +33,18 @@ public sealed class JwtAuthMiddleware
         IUserContext userContext,
         ITenantContext tenantContext)
     {
+        // Skip authentication for CORS preflight requests
+        if (context.Request.Method == "OPTIONS")
+        {
+            await _next(context);
+            return;
+        }
+        
         // Skip authentication for certain paths
         var path = context.Request.Path.Value ?? "";
         if (path == "/" || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) || 
-            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/authentication/login", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;

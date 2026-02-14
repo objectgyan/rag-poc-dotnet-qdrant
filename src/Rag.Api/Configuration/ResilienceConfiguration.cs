@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
+using Polly.CircuitBreaker;
 using Polly.Retry;
 using Polly.Timeout;
 
@@ -27,7 +28,9 @@ public static class ResilienceConfiguration
             .AddStandardResilienceHandler(options =>
             {
                 ConfigureRetryOptions(options.Retry, settings, "Claude");
+                ConfigureTimeoutOptions(options.AttemptTimeout, settings);
                 ConfigureTimeoutOptions(options.TotalRequestTimeout, settings);
+                ConfigureCircuitBreakerOptions(options.CircuitBreaker, settings);
             });
 
         // OpenAI HTTP Client with resilience
@@ -35,7 +38,9 @@ public static class ResilienceConfiguration
             .AddStandardResilienceHandler(options =>
             {
                 ConfigureRetryOptions(options.Retry, settings, "OpenAI");
+                ConfigureTimeoutOptions(options.AttemptTimeout, settings);
                 ConfigureTimeoutOptions(options.TotalRequestTimeout, settings);
+                ConfigureCircuitBreakerOptions(options.CircuitBreaker, settings);
             });
 
         // Qdrant HTTP Client with resilience
@@ -43,7 +48,9 @@ public static class ResilienceConfiguration
             .AddStandardResilienceHandler(options =>
             {
                 ConfigureRetryOptions(options.Retry, settings, "Qdrant");
+                ConfigureTimeoutOptions(options.AttemptTimeout, settings);
                 ConfigureTimeoutOptions(options.TotalRequestTimeout, settings);
+                ConfigureCircuitBreakerOptions(options.CircuitBreaker, settings);
             });
 
         return services;
@@ -88,6 +95,15 @@ public static class ResilienceConfiguration
     private static void ConfigureTimeoutOptions(HttpTimeoutStrategyOptions timeoutOptions, ResilienceSettings settings)
     {
         timeoutOptions.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+    }
+
+    private static void ConfigureCircuitBreakerOptions(HttpCircuitBreakerStrategyOptions circuitBreakerOptions, ResilienceSettings settings)
+    {
+        // Sampling duration must be at least double the attempt timeout
+        circuitBreakerOptions.SamplingDuration = TimeSpan.FromSeconds(settings.TimeoutSeconds * 2);
+        circuitBreakerOptions.FailureRatio = 0.5; // Open circuit if 50% of requests fail
+        circuitBreakerOptions.MinimumThroughput = 3; // Minimum requests before circuit breaker activates
+        circuitBreakerOptions.BreakDuration = TimeSpan.FromSeconds(30); // Stay open for 30 seconds
     }
 }
 

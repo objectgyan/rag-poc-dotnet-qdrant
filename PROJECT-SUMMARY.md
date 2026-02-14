@@ -54,8 +54,8 @@ A production-ready RAG (Retrieval-Augmented Generation) system with autonomous A
 
 ```
 ┌──────────────────────────────────────────────┐
-│            Frontend (To Be Built)            │
-│         React / Vue / Angular / Blazor       │
+│      Rag.Web (React + TypeScript)            │
+│  ChatGPT UI │ Multi-Tenant │ JWT Auth        │
 └──────────────────────────────────────────────┘
                      ↓ REST API
 ┌──────────────────────────────────────────────┐
@@ -165,10 +165,22 @@ rag-poc-dotnet-qdrant/
 │   │   ├── Claude/                   # Chat model
 │   │   ├── Qdrant/                   # Vector store
 │   │   ├── Evaluation/               # Evaluation services
+│   │   ├── Authentication/           # JWT service
 │   │   └── Agent/                    # Agent services
 │   │       ├── AgentOrchestrator.cs  # Main brain
 │   │       ├── ToolRegistry.cs       # Tool management
 │   │       └── Tools/                # Built-in tools
+│   │
+│   ├── Rag.Web/                      # React frontend
+│   │   ├── src/
+│   │   │   ├── components/           # React components
+│   │   │   ├── services/             # API services
+│   │   │   ├── store/                # Zustand state
+│   │   │   ├── types/                # TypeScript types
+│   │   │   └── lib/                  # Utilities
+│   │   ├── public/                   # Static assets
+│   │   ├── package.json              # npm dependencies
+│   │   └── vite.config.ts            # Vite config
 │   │
 │   └── Rag.Tests/                    # Integration tests
 │

@@ -8,21 +8,24 @@ namespace Rag.Api.Controllers;
 /// Agent controller for tool-calling and advanced AI capabilities.
 /// </summary>
 [ApiController]
-[Route("[controller]")]
+[Route("agent")]
 public class AgentController : ControllerBase
 {
     private readonly IAgentOrchestrator _orchestrator;
     private readonly IToolRegistry _toolRegistry;
     private readonly ICodebaseIngestionService _codebaseService;
+    private readonly ILogger<AgentController> _logger;
 
     public AgentController(
         IAgentOrchestrator orchestrator,
         IToolRegistry toolRegistry,
-        ICodebaseIngestionService codebaseService)
+        ICodebaseIngestionService codebaseService,
+        ILogger<AgentController> logger)
     {
         _orchestrator = orchestrator;
         _toolRegistry = toolRegistry;
         _codebaseService = codebaseService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -31,7 +34,11 @@ public class AgentController : ControllerBase
     [HttpPost("chat")]
     public async Task<IActionResult> Chat([FromBody] AgentChatRequest request, CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Agent chat request received: {Message}", request.Message);
+        
         var tenantId = HttpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+        
+        _logger.LogInformation("Processing agent request for tenant: {TenantId}", tenantId ?? "none");
 
         // Convert DTOs to domain models
         var history = request.ConversationHistory?.Select(m => new AgentMessage(

@@ -18,8 +18,8 @@ This is **not just a RAG system** - it's a complete AI platform with:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (To Be Built)                   │
-│                    React/Vue/Angular/Blazor                     │
+│                     Rag.Web (React + TypeScript)                │
+│         ChatGPT-like UI │ Multi-Tenant │ JWT Auth              │
 └─────────────────────────────────────────────────────────────────┘
                               ↓ HTTP/REST
 ┌─────────────────────────────────────────────────────────────────┐

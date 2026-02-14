@@ -39,6 +39,7 @@ builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantCon
 builder.Services.AddScoped<UserContext>();
 builder.Services.AddScoped<IUserContext>(sp => sp.GetRequiredService<UserContext>());
 builder.Services.AddSingleton<IJwtService, Rag.Infrastructure.Authentication.JwtService>();
+builder.Services.AddSingleton<IAuthenticationService, Rag.Infrastructure.Authentication.InMemoryAuthenticationService>();
 
 // 💰 PHASE 3 - Cost Tracking
 builder.Services.AddSingleton<ICostCalculator, Rag.Infrastructure.Cost.CostCalculator>();
@@ -58,44 +59,6 @@ builder.Services.AddSingleton<IToolRegistry, Rag.Infrastructure.Agent.ToolRegist
 builder.Services.AddSingleton<IToolExecutor, Rag.Infrastructure.Agent.ToolExecutor>();
 builder.Services.AddSingleton<IAgentOrchestrator, Rag.Infrastructure.Agent.AgentOrchestrator>();
 builder.Services.AddSingleton<ICodebaseIngestionService, Rag.Infrastructure.Agent.CodebaseIngestionService>();
-
-// Register built-in tools
-builder.Services.AddSingleton(sp =>
-{
-    var registry = sp.GetRequiredService<IToolRegistry>();
-    var embeddingModel = sp.GetRequiredService<IEmbeddingModel>();
-    var vectorStore = sp.GetRequiredService<IVectorStore>();
-    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-
-    // RAG Search Tool
-    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore);
-    registry.RegisterTool(ragTool, new Rag.Core.Agent.ToolMetadata(
-        ragTool.Name,
-        ragTool.Description,
-        Rag.Core.Agent.ToolCategory.RAG,
-        new List<string> { "search", "rag", "documents", "retrieval" }
-    ));
-
-    // GitHub Search Repositories Tool
-    var githubRepoTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchRepositoriesTool(httpClientFactory);
-    registry.RegisterTool(githubRepoTool, new Rag.Core.Agent.ToolMetadata(
-        githubRepoTool.Name,
-        githubRepoTool.Description,
-        Rag.Core.Agent.ToolCategory.GitHub,
-        new List<string> { "github", "repositories", "search" }
-    ));
-
-    // GitHub Search Code Tool
-    var githubCodeTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchCodeTool(httpClientFactory);
-    registry.RegisterTool(githubCodeTool, new Rag.Core.Agent.ToolMetadata(
-        githubCodeTool.Name,
-        githubCodeTool.Description,
-        Rag.Core.Agent.ToolCategory.GitHub,
-        new List<string> { "github", "code", "search", "examples" }
-    ));
-
-    return registry;
-});
 
 // Configure Hangfire for background job processing
 builder.Services.AddHangfire(config => config
@@ -125,12 +88,60 @@ builder.Services.AddSingleton<IVectorStore, QdrantVectorStore>();
 // ⚡ PHASE 1 - Hardening: Rate Limiting
 builder.Services.AddRagRateLimiting(builder.Configuration);
 
+// CORS configuration for frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .WithExposedHeaders("X-Total-Cost", "X-Request-Id");
+    });
+});
+
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Register built-in tools after DI container is built
+using (var scope = app.Services.CreateScope())
+{
+    var registry = scope.ServiceProvider.GetRequiredService<IToolRegistry>();
+    var embeddingModel = scope.ServiceProvider.GetRequiredService<IEmbeddingModel>();
+    var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStore>();
+    var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+
+    // RAG Search Tool
+    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore);
+    registry.RegisterTool(ragTool, new Rag.Core.Agent.ToolMetadata(
+        ragTool.Name,
+        ragTool.Description,
+        Rag.Core.Agent.ToolCategory.RAG,
+        new List<string> { "search", "rag", "documents", "retrieval" }
+    ));
+
+    // GitHub Search Repositories Tool
+    var githubRepoTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchRepositoriesTool(httpClientFactory);
+    registry.RegisterTool(githubRepoTool, new Rag.Core.Agent.ToolMetadata(
+        githubRepoTool.Name,
+        githubRepoTool.Description,
+        Rag.Core.Agent.ToolCategory.GitHub,
+        new List<string> { "github", "repositories", "search" }
+    ));
+
+    // GitHub Search Code Tool
+    var githubCodeTool = new Rag.Infrastructure.Agent.Tools.GitHubSearchCodeTool(httpClientFactory);
+    registry.RegisterTool(githubCodeTool, new Rag.Core.Agent.ToolMetadata(
+        githubCodeTool.Name,
+        githubCodeTool.Description,
+        Rag.Core.Agent.ToolCategory.GitHub,
+        new List<string> { "github", "code", "search", "examples" }
+    ));
+}
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -152,6 +163,9 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(payload);
     });
 });
+
+// CORS - Must be before authentication
+app.UseCors("AllowFrontend");
 
 // PHASE 3 - Security: JWT Authentication (falls back to API key)
 app.UseMiddleware<JwtAuthMiddleware>();

@@ -11,12 +11,18 @@ namespace Rag.Infrastructure.Authentication;
 public sealed class JwtService : IJwtService
 {
     private readonly JwtSettings _settings;
-    private readonly JwtSecurityTokenHandler _tokenHandler = new();
+    private readonly JwtSecurityTokenHandler _tokenHandler;
     private readonly TokenValidationParameters _validationParameters;
 
     public JwtService(IOptions<JwtSettings> settings)
     {
         _settings = settings.Value;
+        
+        // Disable default claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
+        _tokenHandler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false
+        };
         
         _validationParameters = new TokenValidationParameters
         {
