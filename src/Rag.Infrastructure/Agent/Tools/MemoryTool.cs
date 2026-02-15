@@ -14,16 +14,15 @@ public class MemoryTool : ITool
 
     public string Name => "memory";
 
-    public string Description => "Store and retrieve information from conversation history. Use this to remember user preferences, facts, and context across conversations.";
+    public string Description => "Store and retrieve information from conversation history across all sessions. Memory is shared tenant-wide - information stored here persists across conversations and can be retrieved later. Use this to remember important user preferences, facts about the user, ongoing tasks, and context.";
 
     public IReadOnlyList<ToolParameter> Parameters => new List<ToolParameter>
     {
         new("action", "Action to perform: 'store', 'search', 'get_all', 'stats', 'clear'", "string", true, null, new[] { "store", "search", "get_all", "stats", "clear" }),
         new("content", "Content to store or search query (required for 'store' and 'search')", "string", false),
-        new("user_id", "User identifier for memory isolation (defaults to current user)", "string", false),
         new("tenant_id", "Tenant identifier (defaults to current tenant)", "string", false),
         new("type", "Memory type: 'fact', 'preference', 'task', 'context', 'goal', 'conversation'", "string", false, "fact", new[] { "fact", "preference", "task", "context", "goal", "conversation" }),
-        new("category", "Memory category for organization (e.g., 'coding', 'preferences')", "string", false),
+        new("category", "Memory category for organization (e.g., 'coding', 'preferences', 'personal')", "string", false),
         new("importance", "Importance level (1-10, default: 5)", "number", false, 5),
         new("top_k", "Number of memories to return for search (default: 10)", "number", false, 10)
     };
@@ -38,8 +37,11 @@ public class MemoryTool : ITool
         try
         {
             var action = arguments["action"].ToString()!.ToLower();
-            var userId = arguments.TryGetValue("user_id", out var uid) ? uid.ToString()! : "default-user";
-            var tenantId = arguments.TryGetValue("tenant_id", out var tid) ? tid.ToString()! : "dev-tenant";
+            var tenantId = arguments.TryGetValue("tenant_id", out var tid) ? tid.ToString()! : "default";
+            
+            // Use tenant-wide memory: all conversations in the same tenant share memory
+            // This allows cross-session memory retrieval
+            var userId = $"tenant-user-{tenantId}";
 
             return action switch
             {
