@@ -1,3 +1,5 @@
+using Rag.Core.Models;
+
 namespace Rag.Api.Models;
 
 /// <summary>
@@ -17,8 +19,6 @@ public sealed record IngestResponse(
 /// TenantId is automatically extracted from X-Tenant-Id header - ensures tenant isolation.
 /// </summary>
 public sealed record AskRequest(string Question, int TopK = 5);
-
-public sealed record Citation(string DocumentId, int ChunkIndex, double Score);
 
 public sealed record AskResponse(
     string Answer,

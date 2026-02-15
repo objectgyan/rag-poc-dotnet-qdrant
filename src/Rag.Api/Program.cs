@@ -52,6 +52,8 @@ builder.Services.Configure<CostTrackingSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<CorsSettings>(builder.Configuration.GetSection("Cors"));
 builder.Services.Configure<ValidationSettings>(builder.Configuration.GetSection("Validation"));
 builder.Services.Configure<PdfSettings>(builder.Configuration.GetSection("Pdf"));
+builder.Services.Configure<RedisSettings>(builder.Configuration.GetSection("Redis"));
+builder.Services.Configure<SemanticCacheSettings>(builder.Configuration.GetSection("SemanticCache"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -65,6 +67,12 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PdfSettings>>().Value);
+
+builder.Services.AddSingleton(sp =>
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RedisSettings>>().Value);
+
+builder.Services.AddSingleton(sp =>
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SemanticCacheSettings>>().Value);
 
 // 🏢 PHASE 2 - Enterprise: Multi-Tenancy Support
 builder.Services.AddScoped<TenantContext>();
@@ -88,6 +96,36 @@ builder.Services.AddSingleton<IEvaluationTestCaseStore, Rag.Infrastructure.Evalu
 builder.Services.AddSingleton<Rag.Infrastructure.Evaluation.EvaluationRunStore>();
 builder.Services.AddSingleton<IHallucinationDetector, Rag.Infrastructure.Evaluation.LlmHallucinationDetector>();
 builder.Services.AddSingleton<IEvaluationService, Rag.Infrastructure.Evaluation.RagEvaluationService>();
+
+// 🚀 PHASE 9 - Advanced Caching: Redis & Semantic Cache
+var redisSettings = builder.Configuration.GetSection("Redis").Get<RedisSettings>() ?? new RedisSettings();
+if (redisSettings.Enabled)
+{
+    try
+    {
+        builder.Services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
+        {
+            var configuration = StackExchange.Redis.ConfigurationOptions.Parse(redisSettings.ConnectionString);
+            configuration.ConnectTimeout = redisSettings.ConnectTimeout;
+            configuration.ConnectRetry = redisSettings.ConnectRetry;
+            configuration.AbortOnConnectFail = false;
+            return StackExchange.Redis.ConnectionMultiplexer.Connect(configuration);
+        });
+        
+        builder.Services.AddSingleton<ICacheService, Rag.Infrastructure.Caching.RedisCacheService>();
+        builder.Services.AddSingleton<ISemanticCache, Rag.Infrastructure.Caching.SemanticCacheService>();
+        
+        Log.Information("✅ Redis caching enabled: {ConnectionString}", redisSettings.ConnectionString);
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "⚠️ Redis connection failed, caching will be disabled");
+    }
+}
+else
+{
+    Log.Information("ℹ️ Redis caching is disabled in configuration");
+}
 
 // 🤖 PHASE 5 - Agent Layer: Tool-Calling Architecture
 builder.Services.AddSingleton<IToolRegistry, Rag.Infrastructure.Agent.ToolRegistry>();

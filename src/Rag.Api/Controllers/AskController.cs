@@ -24,6 +24,8 @@ public sealed class AskController : ControllerBase
     private readonly QdrantSettings _qdrant;
     private readonly ITenantContext _tenantContext;
     private readonly IValidator<AskRequest> _validator;
+    private readonly ISemanticCache? _semanticCache;
+    private readonly ILogger<AskController> _logger;
 
     public AskController(
         IEmbeddingModel embeddings,
@@ -31,7 +33,9 @@ public sealed class AskController : ControllerBase
         IChatModel chat,
         QdrantSettings qdrant,
         ITenantContext tenantContext,
-        IValidator<AskRequest> validator)
+        IValidator<AskRequest> validator,
+        ILogger<AskController> logger,
+        ISemanticCache? semanticCache = null)
     {
         _embeddings = embeddings;
         _vectorStore = vectorStore;
@@ -39,6 +43,8 @@ public sealed class AskController : ControllerBase
         _qdrant = qdrant;
         _tenantContext = tenantContext;
         _validator = validator;
+        _logger = logger;
+        _semanticCache = semanticCache;
     }
 
     [HttpPost]
@@ -49,6 +55,25 @@ public sealed class AskController : ControllerBase
         if (!validationResult.IsValid)
         {
             throw new ValidationException(validationResult.Errors);
+        }
+
+        var tenantId = _tenantContext.TenantId ?? "default";
+
+        // 🚀 PHASE 9 - Caching: Check semantic cache first
+        if (_semanticCache != null)
+        {
+            var cachedResult = await _semanticCache.GetSimilarAsync(req.Question, tenantId, ct);
+            if (cachedResult != null)
+            {
+                _logger.LogInformation("✨ Semantic cache HIT: Question='{Question}' matched with similarity {Similarity:F3}",
+                    req.Question, cachedResult.SimilarityScore);
+                
+                // Track saved tokens from cache
+                HttpContext.Items["cache_hit"] = true;
+                HttpContext.Items["cache_similarity"] = cachedResult.SimilarityScore;
+                
+                return Ok(new AskResponse(cachedResult.Response, cachedResult.Citations, tenantId));
+            }
         }
 
         var embeddingResult = await _embeddings.EmbedAsync(req.Question, ct);
@@ -119,7 +144,29 @@ public sealed class AskController : ControllerBase
         .OrderByDescending(x => x.Score)
         .ToList();
 
-        var tenantId = _tenantContext.TenantId ?? "default";
+        // 🚀 PHASE 9 - Caching: Store result in semantic cache
+        if (_semanticCache != null)
+        {
+            var totalTokenUsage = new TokenUsage
+            {
+                InputTokens = embeddingResult.TokenUsage.InputTokens + chatResult.TokenUsage.InputTokens,
+                OutputTokens = chatResult.TokenUsage.OutputTokens
+            };
+            
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _semanticCache.StoreAsync(req.Question, chatResult.Answer, deduped, tenantId, totalTokenUsage, CancellationToken.None);
+                    _logger.LogDebug("Stored query in semantic cache: '{Question}'", req.Question);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to store query in semantic cache");
+                }
+            });
+        }
+
         return Ok(new AskResponse(chatResult.Answer, deduped, tenantId));
     }
 
