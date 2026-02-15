@@ -37,8 +37,6 @@ interface AppState {
   // UI State
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  agentMode: boolean;
-  setAgentMode: (enabled: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -244,9 +242,6 @@ export const useAppStore = create<AppState>()(
       // UI State
       sidebarOpen: true,
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      
-      agentMode: true,
-      setAgentMode: (enabled) => set({ agentMode: enabled }),
     }),
     {
       name: 'rag-app-storage',
@@ -257,7 +252,6 @@ export const useAppStore = create<AppState>()(
         tenants: state.tenants,
         currentTenant: state.currentTenant,
         conversations: state.conversations,
-        agentMode: state.agentMode,
       }),
       onRehydrateStorage: () => (state) => {
         // Restore token in API client after rehydration

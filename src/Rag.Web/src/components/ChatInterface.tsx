@@ -3,7 +3,6 @@ import { Send, Paperclip, Loader2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { FileUpload } from './FileUpload';
 import { useAppStore } from '@/store/app-store';
-import { ragService } from '@/services/rag-service';
 import { agentService } from '@/services/agent-service';
 import { generateId } from '@/lib/utils';
 import { ChatMessage as ChatMessageType } from '@/types';
@@ -12,7 +11,6 @@ export const ChatInterface: React.FC = () => {
   const {
     currentConversation,
     currentTenant,
-    agentMode,
     addMessage,
     updateMessage,
     createConversation,
@@ -76,53 +74,32 @@ export const ChatInterface: React.FC = () => {
     addMessage(conversation.id, loadingMessage);
 
     try {
-      if (agentMode) {
-        // Use agent mode
-        const conversationHistory = conversation.messages
-          .filter((m) => !m.isLoading)
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
+      // Use agent mode (includes RAG via useRagForContext)
+      const conversationHistory = conversation.messages
+        .filter((m) => !m.isLoading)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
-        const response = await agentService.chat({
-          message: userInput,
-          conversationHistory,
-          config: {
-            maxToolCalls: 5,
-            allowParallelToolCalls: true,
-            useRagForContext: true,
-            enableChainOfThought: true,
-          },
-        });
+      const response = await agentService.chat({
+        message: userInput,
+        conversationHistory,
+        config: {
+          maxToolCalls: 5,
+          allowParallelToolCalls: true,
+          useRagForContext: true,
+          enableChainOfThought: true,
+        },
+      });
 
-        // Update loading message with response
-        updateMessage(conversation.id, loadingMessageId, {
-          content: response.answer,
-          toolCalls: response.toolCalls,
-          metrics: response.metrics,
-          isLoading: false,
-        });
-      } else {
-        // Use regular RAG mode
-        const response = await ragService.ask({
-          question: userInput,
-          topK: 3,
-        });
-
-        // Update loading message with response
-        updateMessage(conversation.id, loadingMessageId, {
-          content: response.answer,
-          citations: response.citations,
-          metrics: {
-            toolCallsCount: 0,
-            documentsRetrieved: response.citations.length,
-            durationMs: 0,
-            estimatedCost: response.cost?.totalCost || 0,
-          },
-          isLoading: false,
-        });
-      }
+      // Update loading message with response
+      updateMessage(conversation.id, loadingMessageId, {
+        content: response.answer,
+        toolCalls: response.toolCalls,
+        metrics: response.metrics,
+        isLoading: false,
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       updateMessage(conversation.id, loadingMessageId, {
@@ -151,12 +128,10 @@ export const ChatInterface: React.FC = () => {
           <div className="flex items-center justify-center h-full text-center px-6">
             <div className="max-w-md space-y-4">
               <h2 className="text-3xl font-bold text-gray-900">
-                {agentMode ? '🤖 AI Agent Assistant' : '💬 RAG Assistant'}
+                🤖 AI Agent Assistant
               </h2>
               <p className="text-gray-600">
-                {agentMode
-                  ? 'I can search documents, GitHub repositories, and use various tools to help you.'
-                  : 'Ask questions about your documents and I\'ll provide answers with citations.'}
+                I can search documents, GitHub repositories, remember conversations, and use various tools to help you.
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
                 <button
@@ -165,22 +140,24 @@ export const ChatInterface: React.FC = () => {
                 >
                   What is Qdrant?
                 </button>
-                {agentMode && (
-                  <>
-                    <button
-                      onClick={() => setInput('Find popular vector database repos on GitHub')}
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                    >
-                      Search GitHub
-                    </button>
-                    <button
-                      onClick={() => setInput('Research vector databases using docs and GitHub')}
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-                    >
-                      Multi-step research
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => setInput('Find popular vector database repos on GitHub')}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Search GitHub
+                </button>
+                <button
+                  onClick={() => setInput('Research vector databases using docs and GitHub')}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Multi-step research
+                </button>
+                <button
+                  onClick={() => setInput('Remember that I prefer detailed technical explanations')}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Store Memory
+                </button>
               </div>
             </div>
           </div>
@@ -212,11 +189,7 @@ export const ChatInterface: React.FC = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  agentMode
-                    ? 'Ask anything... I can search docs, GitHub, and more'
-                    : 'Ask a question about your documents...'
-                }
+                placeholder="Ask anything... I can search docs, GitHub, remember conversations, and more"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                 rows={1}
                 disabled={isLoading || !currentTenant}

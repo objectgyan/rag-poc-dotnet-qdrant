@@ -1,7 +1,9 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Rag.Api.Models;
+using Rag.Core.Abstractions;
 using Rag.Core.Agent;
+using System.Text.Json;
 
 namespace Rag.Api.Controllers;
 
@@ -15,6 +17,7 @@ public class AgentController : ControllerBase
     private readonly IAgentOrchestrator _orchestrator;
     private readonly IToolRegistry _toolRegistry;
     private readonly ICodebaseIngestionService _codebaseService;
+    private readonly ISemanticCache? _semanticCache;
     private readonly ILogger<AgentController> _logger;
     private readonly IValidator<AgentChatRequest> _validator;
     private readonly IValidator<IngestCodebaseRequest> _codebaseValidator;
@@ -25,11 +28,13 @@ public class AgentController : ControllerBase
         ICodebaseIngestionService codebaseService,
         ILogger<AgentController> logger,
         IValidator<AgentChatRequest> validator,
-        IValidator<IngestCodebaseRequest> codebaseValidator)
+        IValidator<IngestCodebaseRequest> codebaseValidator,
+        ISemanticCache? semanticCache = null)
     {
         _orchestrator = orchestrator;
         _toolRegistry = toolRegistry;
         _codebaseService = codebaseService;
+        _semanticCache = semanticCache;
         _logger = logger;
         _validator = validator;
         _codebaseValidator = codebaseValidator;
@@ -53,6 +58,37 @@ public class AgentController : ControllerBase
         var tenantId = HttpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
 
         _logger.LogInformation("Processing agent request for tenant: {TenantId}", tenantId ?? "none");
+
+        // Check conversation cache first (only for empty history to avoid stale responses)
+        if (_semanticCache != null && (request.ConversationHistory == null || request.ConversationHistory.Count == 0))
+        {
+            var cachedResponse = await _semanticCache.GetSimilarAsync(request.Message, tenantId ?? "default", cancellationToken);
+            if (cachedResponse != null)
+            {
+                _logger.LogInformation("Agent conversation cache HIT for query '{Query}' (similarity: {Similarity:F3})", 
+                    request.Message, cachedResponse.SimilarityScore);
+                
+                try
+                {
+                    // Deserialize cached agent response
+                    var cachedDto = JsonSerializer.Deserialize<AgentChatResponse>(cachedResponse.Response);
+                    if (cachedDto != null)
+                    {
+                        // Add cache indicator to metrics
+                        cachedDto.Metrics.ToolUsageCounts["__cached__"] = 1;
+                        return Ok(cachedDto);
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize cached agent response, will recompute");
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Agent conversation cache MISS for query '{Query}'", request.Message);
+            }
+        }
 
         // Convert DTOs to domain models
         var history = request.ConversationHistory?.Select(m => new AgentMessage(
@@ -98,12 +134,40 @@ public class AgentController : ControllerBase
             response.Metrics.ToolUsageCounts
         );
 
-        return Ok(new AgentChatResponse(
+        var responseDto = new AgentChatResponse(
             response.FinalAnswer,
             toolCallDtos,
             response.RetrievedDocuments,
             metricsDto
-        ));
+        );
+
+        // Cache the full agent response (only for empty history to avoid stale responses)
+        if (_semanticCache != null && (request.ConversationHistory == null || request.ConversationHistory.Count == 0))
+        {
+            try
+            {
+                var responseJson = JsonSerializer.Serialize(responseDto);
+                var citations = response.RetrievedDocuments.Select(d => 
+                    new Core.Models.Citation(d, 0, 1.0)).ToList();
+                
+                await _semanticCache.StoreAsync(
+                    request.Message,
+                    responseJson,
+                    citations,
+                    tenantId ?? "default",
+                    new Core.Models.TokenUsage(), // Agent metrics track this separately
+                    cancellationToken
+                );
+                
+                _logger.LogInformation("Cached agent response for query '{Query}'", request.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cache agent response, continuing anyway");
+            }
+        }
+
+        return Ok(responseDto);
     }
 
     /// <summary>

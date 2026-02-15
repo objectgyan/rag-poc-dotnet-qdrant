@@ -47,6 +47,11 @@ public sealed class AskController : ControllerBase
         _semanticCache = semanticCache;
     }
 
+    /// <summary>
+    /// [DEPRECATED] Use /api/v1/agent/chat instead with config.useRagForContext = true.
+    /// This endpoint provides direct RAG without agent orchestration, tool access, or memory.
+    /// </summary>
+    [Obsolete("Use AgentController.Chat() with useRagForContext=true for enhanced capabilities including memory, tools, and multi-step reasoning. This endpoint will be removed in v2.0.")]
     [HttpPost]
     public async Task<ActionResult<AskResponse>> Ask([FromBody] AskRequest req, CancellationToken ct)
     {
@@ -171,9 +176,11 @@ public sealed class AskController : ControllerBase
     }
 
     /// <summary>
-    /// Stream RAG response token-by-token for better UX (Phase 8).
+    /// [DEPRECATED] Streaming is not implemented in the frontend.
+    /// Use /api/v1/agent/chat for standard responses or implement streaming via SignalR.
     /// Returns Server-Sent Events (SSE) stream.
     /// </summary>
+    [Obsolete("Streaming not implemented in frontend. Use AgentController.Chat() for standard responses. This endpoint will be removed in v2.0.")]
     [HttpGet("stream")]
     public async Task AskStream(
         [FromQuery] string question,

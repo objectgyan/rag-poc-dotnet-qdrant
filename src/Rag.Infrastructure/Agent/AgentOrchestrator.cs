@@ -38,6 +38,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         var toolCallsExecuted = new List<ToolCall>();
         var retrievedDocuments = new List<string>();
         var toolUsageCounts = new Dictionary<string, int>();
+        var requestToolCache = new Dictionary<string, ToolResult>(); // Cache tool results within this request
 
         // Add user message
         messages.Add(new AgentMessage("user", userMessage));
@@ -96,16 +97,57 @@ public class AgentOrchestrator : IAgentOrchestrator
                 }
             }
 
-            var toolResults = config.AllowParallelToolCalls && toolCalls.Count > 1
-                ? await _toolExecutor.ExecuteParallelAsync(toolCalls, cancellationToken)
-                : new Dictionary<string, ToolResult>();
+            // Deduplicate tool calls - check request-level cache first
+            var deduplicatedToolCalls = new List<ToolCall>();
+            var toolResults = new Dictionary<string, ToolResult>();
 
-            if (!config.AllowParallelToolCalls || toolCalls.Count == 1)
+            foreach (var toolCall in toolCalls)
             {
-                foreach (var toolCall in toolCalls)
+                var cacheKey = GetToolCallCacheKey(toolCall);
+                
+                if (requestToolCache.TryGetValue(cacheKey, out var cachedResult))
+                {
+                    // Use cached result from earlier in this request
+                    toolResults[toolCall.ToolName] = cachedResult;
+                    // Don't add to toolCallsExecuted again - it's a duplicate
+                }
+                else
+                {
+                    // New tool call - need to execute
+                    deduplicatedToolCalls.Add(toolCall);
+                }
+            }
+
+            // Execute only deduplicated tool calls
+            if (config.AllowParallelToolCalls && deduplicatedToolCalls.Count > 1)
+            {
+                var parallelResults = await _toolExecutor.ExecuteParallelAsync(deduplicatedToolCalls, cancellationToken);
+                foreach (var kvp in parallelResults)
+                {
+                    toolResults[kvp.Key] = kvp.Value;
+                }
+                
+                toolCallsExecuted.AddRange(deduplicatedToolCalls);
+                foreach (var tc in deduplicatedToolCalls)
+                {
+                    var cacheKey = GetToolCallCacheKey(tc);
+                    requestToolCache[cacheKey] = parallelResults[tc.ToolName];
+                    
+                    if (!toolUsageCounts.ContainsKey(tc.ToolName))
+                        toolUsageCounts[tc.ToolName] = 0;
+                    toolUsageCounts[tc.ToolName]++;
+                }
+            }
+            else if (deduplicatedToolCalls.Count > 0)
+            {
+                foreach (var toolCall in deduplicatedToolCalls)
                 {
                     var result = await _toolExecutor.ExecuteAsync(toolCall, cancellationToken);
                     toolResults[toolCall.ToolName] = result;
+                    
+                    // Cache for this request
+                    var cacheKey = GetToolCallCacheKey(toolCall);
+                    requestToolCache[cacheKey] = result;
 
                     toolCallsExecuted.Add(toolCall);
 
@@ -120,16 +162,6 @@ public class AgentOrchestrator : IAgentOrchestrator
                     {
                         retrievedDocuments.Add(result.Content ?? "");
                     }
-                }
-            }
-            else
-            {
-                toolCallsExecuted.AddRange(toolCalls);
-                foreach (var tc in toolCalls)
-                {
-                    if (!toolUsageCounts.ContainsKey(tc.ToolName))
-                        toolUsageCounts[tc.ToolName] = 0;
-                    toolUsageCounts[tc.ToolName]++;
                 }
             }
 
@@ -214,6 +246,13 @@ When you need to use a tool, respond in this JSON format:
     }
   ]
 }
+
+IMPORTANT GUIDELINES:
+- DO NOT call the same tool with the same arguments multiple times in one conversation turn
+- After receiving tool results, USE THEM to formulate your answer instead of calling tools again
+- If you already have information from a previous tool call, synthesize an answer from that
+- Only call tools when you genuinely need NEW information that you don't already have
+- Avoid redundant searches - use the context and tool results you already received
 
 After tool results are provided, synthesize a final answer for the user.
 If you can answer directly without tools, just provide the answer normally.
@@ -329,6 +368,17 @@ Available tools:");
                 .ToDictionary(p => p.Name, p => ParseJsonValue(p.Value)),
             _ => element.ToString()
         };
+    }
+
+    private string GetToolCallCacheKey(ToolCall toolCall)
+    {
+        // Create a unique key for this tool call based on tool name and arguments
+        var argsJson = JsonSerializer.Serialize(toolCall.Arguments, new JsonSerializerOptions 
+        { 
+            WriteIndented = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+        return $"{toolCall.ToolName}:{argsJson}";
     }
 
     private double EstimateCost(List<AgentMessage> messages, List<ToolCall> toolCalls)

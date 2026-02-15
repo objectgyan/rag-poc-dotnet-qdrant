@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   Building2,
   Bot,
-  FileText,
   LogOut,
   User,
 } from 'lucide-react';
@@ -22,11 +21,9 @@ export const Sidebar: React.FC = () => {
     conversations,
     currentConversation,
     currentTenant,
-    agentMode,
     setCurrentConversation,
     createConversation,
     deleteConversation,
-    setAgentMode,
     sidebarOpen,
     toggleSidebar,
     logout,
@@ -114,32 +111,11 @@ export const Sidebar: React.FC = () => {
             <span>New Chat</span>
           </button>
 
-          {/* Agent mode toggle */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-800 rounded-lg">
-            <div className="flex items-center gap-2">
-              {agentMode ? (
-                <Bot className="w-5 h-5 text-purple-400" />
-              ) : (
-                <FileText className="w-5 h-5 text-blue-400" />
-              )}
-              <span className="text-sm font-medium">
-                {agentMode ? 'Agent Mode' : 'RAG Mode'}
-              </span>
-            </div>
-            <button
-              onClick={() => setAgentMode(!agentMode)}
-              className={cn(
-                'relative w-11 h-6 rounded-full transition-colors',
-                agentMode ? 'bg-purple-600' : 'bg-gray-600'
-              )}
-            >
-              <div
-                className={cn(
-                  'absolute top-1 w-4 h-4 bg-white rounded-full transition-transform',
-                  agentMode ? 'left-6' : 'left-1'
-                )}
-              />
-            </button>
+          {/* Agent mode indicator */}
+          <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-lg">
+            <Bot className="w-5 h-5 text-purple-400" />
+            <span className="text-sm font-medium">AI Agent Mode</span>
+            <span className="ml-auto text-xs text-gray-400">RAG + Tools</span>
           </div>
         </div>
 

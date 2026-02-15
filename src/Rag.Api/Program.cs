@@ -133,6 +133,21 @@ builder.Services.AddSingleton<IToolExecutor, Rag.Infrastructure.Agent.ToolExecut
 builder.Services.AddSingleton<IAgentOrchestrator, Rag.Infrastructure.Agent.AgentOrchestrator>();
 builder.Services.AddSingleton<ICodebaseIngestionService, Rag.Infrastructure.Agent.CodebaseIngestionService>();
 
+// 🧠 PHASE 10 - Agent Tools: Long-term Memory
+var memorySettings = new Rag.Core.Models.MemorySettings();
+builder.Configuration.GetSection("Memory").Bind(memorySettings);
+builder.Services.AddSingleton(memorySettings);
+
+if (memorySettings.Enabled)
+{
+    builder.Services.AddSingleton<IConversationMemory, Rag.Infrastructure.Memory.ConversationMemoryService>();
+    Log.Information("✅ Conversation memory enabled (collection: {Collection})", memorySettings.Collection);
+}
+else
+{
+    Log.Information("ℹ️ Conversation memory is disabled in configuration");
+}
+
 // Configure Hangfire for background job processing
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -220,9 +235,11 @@ using (var scope = app.Services.CreateScope())
     var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStore>();
     var qdrantSettings = scope.ServiceProvider.GetRequiredService<Rag.Core.Models.QdrantSettings>();
     var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+    var semanticCache = scope.ServiceProvider.GetService<ISemanticCache>();
+    var ragToolLogger = scope.ServiceProvider.GetService<ILogger<Rag.Infrastructure.Agent.Tools.RagSearchTool>>();
 
-    // RAG Search Tool
-    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore, qdrantSettings);
+    // RAG Search Tool (with semantic caching)
+    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore, qdrantSettings, semanticCache, ragToolLogger);
     registry.RegisterTool(ragTool, new Rag.Core.Agent.ToolMetadata(
         ragTool.Name,
         ragTool.Description,
@@ -247,6 +264,20 @@ using (var scope = app.Services.CreateScope())
         Rag.Core.Agent.ToolCategory.GitHub,
         new List<string> { "github", "code", "search", "examples" }
     ));
+
+    // Memory Tool (if enabled)
+    var memoryService = scope.ServiceProvider.GetService<IConversationMemory>();
+    if (memoryService != null)
+    {
+        var memoryTool = new Rag.Infrastructure.Agent.Tools.MemoryTool(memoryService);
+        registry.RegisterTool(memoryTool, new Rag.Core.Agent.ToolMetadata(
+            memoryTool.Name,
+            memoryTool.Description,
+            Rag.Core.Agent.ToolCategory.Custom,
+            new List<string> { "memory", "conversation", "context", "persistence" }
+        ));
+        Log.Information("✅ Memory tool registered");
+    }
 }
 
 // 📊 PHASE 7 - Observability: Global Exception Handling with RFC 7807 ProblemDetails

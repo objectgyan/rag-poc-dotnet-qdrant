@@ -1,16 +1,19 @@
 using Rag.Core.Abstractions;
 using Rag.Core.Agent;
 using Rag.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Rag.Infrastructure.Agent.Tools;
 
 /// <summary>
-/// Tool for performing RAG-based document search.
+/// Tool for performing RAG-based document search with semantic caching.
 /// </summary>
 public class RagSearchTool : ITool
 {
     private readonly IEmbeddingModel _embeddingModel;
     private readonly IVectorStore _vectorStore;
+    private readonly ISemanticCache? _semanticCache;
+    private readonly ILogger<RagSearchTool>? _logger;
     private readonly string _collectionName;
 
     public string Name => "rag_search";
@@ -24,10 +27,17 @@ public class RagSearchTool : ITool
         new("tenant_id", "Tenant ID for multi-tenancy isolation", "string", false)
     };
 
-    public RagSearchTool(IEmbeddingModel embeddingModel, IVectorStore vectorStore, QdrantSettings qdrantSettings)
+    public RagSearchTool(
+        IEmbeddingModel embeddingModel, 
+        IVectorStore vectorStore, 
+        QdrantSettings qdrantSettings,
+        ISemanticCache? semanticCache = null,
+        ILogger<RagSearchTool>? logger = null)
     {
         _embeddingModel = embeddingModel;
         _vectorStore = vectorStore;
+        _semanticCache = semanticCache;
+        _logger = logger;
         _collectionName = qdrantSettings.Collection;
     }
 
@@ -35,7 +45,43 @@ public class RagSearchTool : ITool
     {
         var query = arguments["query"].ToString()!;
         var topK = arguments.TryGetValue("top_k", out var topKObj) ? Convert.ToInt32(topKObj) : 3;
-        var tenantId = arguments.TryGetValue("tenant_id", out var tenantObj) ? tenantObj.ToString() : null;
+        var tenantId = arguments.TryGetValue("tenant_id", out var tenantObj) ? tenantObj.ToString() : "default";
+
+        // Check semantic cache first
+        if (_semanticCache != null)
+        {
+            var cachedResult = await _semanticCache.GetSimilarAsync(query, tenantId, cancellationToken);
+            if (cachedResult != null)
+            {
+                _logger?.LogInformation("RagSearchTool: Cache HIT for query '{Query}' (similarity: {Similarity:F3})", query, cachedResult.SimilarityScore);
+                
+                // Parse cached response to extract metadata
+                var resultsCount = cachedResult.Citations?.Count ?? 0;
+                var cachedDocuments = cachedResult.Citations?.Select((c, idx) => new
+                {
+                    rank = idx + 1,
+                    document_id = c.DocumentId,
+                    score = c.Score,
+                    chunk_index = c.ChunkIndex
+                }).ToList();
+
+                return ToolResult.Ok(
+                    cachedResult.Response,
+                    new Dictionary<string, object>
+                    {
+                        ["query"] = query,
+                        ["results_count"] = resultsCount,
+                        ["documents"] = (object?)cachedDocuments ?? new List<object>(),
+                        ["cached"] = true,
+                        ["cache_similarity"] = cachedResult.SimilarityScore
+                    }
+                );
+            }
+            else
+            {
+                _logger?.LogInformation("RagSearchTool: Cache MISS for query '{Query}' - performing full search", query);
+            }
+        }
 
         // Embed query
         var embeddingResult = await _embeddingModel.EmbedAsync(query, cancellationToken);
@@ -81,13 +127,33 @@ public class RagSearchTool : ITool
             content += $"\nRelevance: {doc.score:F3}\nContent: {doc.text}\n\n";
         }
 
+        // Store in semantic cache
+        if (_semanticCache != null)
+        {
+            var citations = documents.Select(d => new Citation(
+                d.document_id,
+                0, // chunk index not available in current payload
+                d.score
+            )).ToList();
+
+            await _semanticCache.StoreAsync(
+                query,
+                content.Trim(),
+                citations,
+                tenantId,
+                new TokenUsage(), // Tool doesn't track token usage directly
+                cancellationToken
+            );
+        }
+
         return ToolResult.Ok(
             content.Trim(),
             new Dictionary<string, object>
             {
                 ["query"] = query,
                 ["results_count"] = documents.Count,
-                ["documents"] = documents
+                ["documents"] = documents,
+                ["cached"] = false
             }
         );
     }
