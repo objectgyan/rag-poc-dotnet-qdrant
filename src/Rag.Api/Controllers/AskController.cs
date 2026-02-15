@@ -202,6 +202,48 @@ public sealed class AskController : ControllerBase
 
         topK = Math.Clamp(topK, 1, 20);
 
+        // Check semantic cache first
+        if (_semanticCache != null)
+        {
+            var cachedResult = await _semanticCache.GetSimilarAsync(question, _tenantContext.TenantId ?? "default", ct);
+            if (cachedResult != null)
+            {
+                _logger.LogInformation("Streaming cache HIT for query '{Query}' (similarity: {Similarity:F3})", question, cachedResult.SimilarityScore);
+                
+                // Stream cached response token-by-token for smooth UX
+                var cachedResponse = cachedResult.Response;
+                var words = cachedResponse.Split(' ');
+                
+                foreach (var word in words)
+                {
+                    var chunk = new
+                    {
+                        token = word + " ",
+                        done = false,
+                        cached = true
+                    };
+
+                    var sseData = $"data: {JsonSerializer.Serialize(chunk)}\n\n";
+                    await Response.WriteAsync(sseData, ct);
+                    await Response.Body.FlushAsync(ct);
+                    
+                    // Small delay to simulate natural streaming
+                    await Task.Delay(10, ct);
+                }
+
+                // Send completion signal
+                var cachedDoneChunk = new { done = true, cached = true };
+                var cachedDoneSseData = $"data: {JsonSerializer.Serialize(cachedDoneChunk)}\n\n";
+                await Response.WriteAsync(cachedDoneSseData, ct);
+                await Response.Body.FlushAsync(ct);
+                return;
+            }
+            else
+            {
+                _logger.LogInformation("Streaming cache MISS for query '{Query}'", question);
+            }
+        }
+
         // 1. Retrieve context (same as non-streaming Ask endpoint)
         var embeddingResult = await _embeddings.EmbedAsync(question, ct);
         HttpContext.TrackTokenUsage(embeddingResult.TokenUsage);
@@ -252,9 +294,12 @@ public sealed class AskController : ControllerBase
 
         Answer:";
 
-        // 2. Stream response tokens in SSE format
+        // 2. Stream response tokens in SSE format and accumulate for caching
+        var fullResponse = new StringBuilder();
         await foreach (var token in _chat.StreamResponseAsync(systemPrompt, userPrompt, ct))
         {
+            fullResponse.Append(token);
+            
             var chunk = new
             {
                 token = token,
@@ -266,7 +311,36 @@ public sealed class AskController : ControllerBase
             await Response.Body.FlushAsync(ct);
         }
 
-        // 3. Send completion signal
+        // 3. Store in semantic cache for future requests
+        if (_semanticCache != null)
+        {
+            try
+            {
+                var citations = hits.Select(h => 
+                {
+                    var docId = h.Payload.TryGetValue("documentId", out var d) ? d?.ToString() ?? "" : "";
+                    var chunkIndex = h.Payload.TryGetValue("chunkIndex", out var ci) && int.TryParse(ci?.ToString(), out var idx) ? idx : 0;
+                    return new Citation(docId, chunkIndex, h.Score);
+                }).ToList();
+
+                await _semanticCache.StoreAsync(
+                    question,
+                    fullResponse.ToString(),
+                    citations,
+                    _tenantContext.TenantId ?? "default",
+                    new TokenUsage(), // Token usage tracked separately
+                    ct
+                );
+                
+                _logger.LogInformation("Cached streaming response for query '{Query}'", question);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cache streaming response, continuing anyway");
+            }
+        }
+
+        // 4. Send completion signal
         var doneChunk = new { done = true };
         var doneSseData = $"data: {JsonSerializer.Serialize(doneChunk)}\n\n";
         await Response.WriteAsync(doneSseData, ct);

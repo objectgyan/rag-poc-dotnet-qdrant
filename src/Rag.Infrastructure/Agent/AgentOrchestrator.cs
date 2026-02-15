@@ -37,6 +37,7 @@ public class AgentOrchestrator : IAgentOrchestrator
         var messages = new List<AgentMessage>(conversationHistory);
         var toolCallsExecuted = new List<ToolCall>();
         var retrievedDocuments = new List<string>();
+        var citations = new List<AgentCitation>();
         var toolUsageCounts = new Dictionary<string, int>();
         var requestToolCache = new Dictionary<string, ToolResult>(); // Cache tool results within this request
 
@@ -74,6 +75,7 @@ public class AgentOrchestrator : IAgentOrchestrator
                     messages,
                     toolCallsExecuted,
                     retrievedDocuments,
+                    citations,
                     new AgentMetrics(
                         toolCallsExecuted.Count,
                         retrievedDocuments.Count,
@@ -156,11 +158,54 @@ public class AgentOrchestrator : IAgentOrchestrator
                         toolUsageCounts[toolCall.ToolName] = 0;
                     toolUsageCounts[toolCall.ToolName]++;
 
-                    // Track RAG documents
+                    // Track RAG documents and citations
                     if (toolCall.ToolName == "rag_search" && result.Data != null &&
                         result.Data.TryGetValue("documents", out var docs))
                     {
                         retrievedDocuments.Add(result.Content ?? "");
+                        
+                        // Extract citation details from documents array
+                        if (docs is System.Collections.IEnumerable enumerable)
+                        {
+                            foreach (var item in enumerable)
+                            {
+                                if (item is System.Text.Json.JsonElement jsonDoc)
+                                {
+                                    var documentId = jsonDoc.TryGetProperty("document_id", out var docId) ? docId.GetString() : null;
+                                    var page = jsonDoc.TryGetProperty("page", out var p) && int.TryParse(p.GetString(), out var pageNum) ? pageNum : (int?)null;
+                                    var score = jsonDoc.TryGetProperty("score", out var s) ? s.GetDouble() : 0.0;
+                                    var text = jsonDoc.TryGetProperty("text", out var t) ? t.GetString() : null;
+                                    
+                                    if (documentId != null)
+                                    {
+                                        citations.Add(new AgentCitation(documentId, page, score, text));
+                                    }
+                                }
+                                else
+                                {
+                                    // Handle as dynamic object using reflection
+                                    var itemType = item?.GetType();
+                                    if (itemType != null)
+                                    {
+                                        var docIdProp = itemType.GetProperty("document_id");
+                                        var pageProp = itemType.GetProperty("page");
+                                        var scoreProp = itemType.GetProperty("score");
+                                        var textProp = itemType.GetProperty("text");
+                                        
+                                        var documentId = docIdProp?.GetValue(item)?.ToString();
+                                        var pageStr = pageProp?.GetValue(item)?.ToString();
+                                        var page = pageStr != null && int.TryParse(pageStr, out var pageNum) ? pageNum : (int?)null;
+                                        var score = (double?)(scoreProp?.GetValue(item) ?? 0.0) ?? 0.0;
+                                        var text = textProp?.GetValue(item)?.ToString();
+                                        
+                                        if (documentId != null)
+                                        {
+                                            citations.Add(new AgentCitation(documentId, page, score, text));
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -185,6 +230,7 @@ public class AgentOrchestrator : IAgentOrchestrator
             messages,
             toolCallsExecuted,
             retrievedDocuments,
+            citations,
             new AgentMetrics(
                 toolCallsExecuted.Count,
                 retrievedDocuments.Count,

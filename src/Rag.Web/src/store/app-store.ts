@@ -107,8 +107,8 @@ export const useAppStore = create<AppState>()(
       },
 
       // Tenants
-      tenants: [],
-      currentTenant: null,
+      tenants: [{ id: 'tenant-mayank', name: 'Mayank', apiKey: 'secure_password' }],
+      currentTenant: { id: 'tenant-mayank', name: 'Mayank', apiKey: 'secure_password' },
       
       addTenant: (tenant) => {
         set((state) => ({

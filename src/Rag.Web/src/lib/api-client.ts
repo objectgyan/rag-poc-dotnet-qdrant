@@ -151,3 +151,6 @@ export class ApiClient {
 
 // Create singleton instance
 export const apiClient = new ApiClient();
+
+// Set default tenant - update this to match your tenant in the backend
+apiClient.setTenantId('tenant-mayank');

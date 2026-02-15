@@ -3,7 +3,6 @@ import {
   Plus,
   MessageSquare,
   Trash2,
-  Settings,
   ChevronLeft,
   Building2,
   Bot,

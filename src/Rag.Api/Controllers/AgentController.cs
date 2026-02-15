@@ -126,6 +126,13 @@ public class AgentController : ControllerBase
             tc.ReasoningTrace
         )).ToList();
 
+        var citationDtos = response.Citations.Select(c => new CitationDto(
+            c.DocumentId,
+            c.PageNumber,
+            c.Score,
+            c.Text
+        )).ToList();
+
         var metricsDto = new AgentMetricsDto(
             response.Metrics.ToolCallsCount,
             response.Metrics.DocumentsRetrieved,
@@ -138,6 +145,7 @@ public class AgentController : ControllerBase
             response.FinalAnswer,
             toolCallDtos,
             response.RetrievedDocuments,
+            citationDtos,
             metricsDto
         );
 

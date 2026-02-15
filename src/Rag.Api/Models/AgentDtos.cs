@@ -52,12 +52,23 @@ public record AgentConfigDto(
 );
 
 /// <summary>
+/// Citation DTO for agent responses.
+/// </summary>
+public record CitationDto(
+    string DocumentId,
+    int? PageNumber,
+    double Score,
+    string? Text = null
+);
+
+/// <summary>
 /// Agent response DTO.
 /// </summary>
 public record AgentChatResponse(
     string Answer,
     List<ToolCallDto> ToolCalls,
     List<string> RetrievedDocuments,
+    List<CitationDto> Citations,
     AgentMetricsDto Metrics
 );
 

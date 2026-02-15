@@ -82,6 +82,7 @@ export interface AgentChatResponse {
   answer: string;
   toolCalls: ToolCall[];
   retrievedDocuments: string[];
+  citations: Citation[];
   metrics: AgentMetrics;
 }
 

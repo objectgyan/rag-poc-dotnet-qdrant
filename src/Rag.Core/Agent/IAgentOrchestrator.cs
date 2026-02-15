@@ -29,6 +29,16 @@ public interface IAgentOrchestrator
 }
 
 /// <summary>
+/// Citation from RAG search.
+/// </summary>
+public record AgentCitation(
+    string DocumentId,
+    int? PageNumber,
+    double Score,
+    string? Text = null
+);
+
+/// <summary>
 /// Agent's response to a user message.
 /// </summary>
 public record AgentResponse(
@@ -36,6 +46,7 @@ public record AgentResponse(
     List<AgentMessage> Messages,
     List<ToolCall> ToolCallsExecuted,
     List<string> RetrievedDocuments,
+    List<AgentCitation> Citations,
     AgentMetrics Metrics
 );
 
