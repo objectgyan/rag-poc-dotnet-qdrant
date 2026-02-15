@@ -218,6 +218,19 @@ app.UseValidation();
 // CORS - Must be before authentication
 app.UseCors("AllowFrontend");
 
+// ⚡ PHASE 8 - Streaming: Server-Sent Events (SSE) Support
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1/ask/stream"))
+    {
+        context.Response.Headers.Append("Cache-Control", "no-cache");
+        context.Response.Headers.Append("Content-Type", "text/event-stream");
+        context.Response.Headers.Append("Connection", "keep-alive");
+        context.Response.Headers.Append("X-Accel-Buffering", "no"); // Disable nginx buffering
+    }
+    await next();
+});
+
 // PHASE 3 - Security: JWT Authentication (falls back to API key)
 app.UseMiddleware<JwtAuthMiddleware>();
 

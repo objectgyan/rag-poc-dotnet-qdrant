@@ -26,8 +26,16 @@ export const ChatMessage: React.FC<Props> = ({ message }) => {
       </div>
 
       <div className="flex-1 space-y-3">
-        {/* Loading state */}
-        {message.isLoading ? (
+        {/* Message content */}
+        {message.content ? (
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+            {/* Show cursor when streaming */}
+            {message.isLoading && (
+              <span className="inline-block w-0.5 h-4 ml-1 bg-blue-600 animate-pulse"></span>
+            )}
+          </div>
+        ) : message.isLoading ? (
           <div className="flex items-center gap-2 text-gray-500">
             <div className="flex gap-1">
               <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -36,12 +44,11 @@ export const ChatMessage: React.FC<Props> = ({ message }) => {
             </div>
             <span className="text-sm">Thinking...</span>
           </div>
-        ) : (
+        ) : null}
+
+        {/* Other message parts - only show when not loading or when content exists */}
+        {!message.isLoading && (
           <>
-            {/* Message content */}
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            </div>
 
             {/* Tool calls */}
             {message.toolCalls && message.toolCalls.length > 0 && (
