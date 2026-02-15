@@ -20,14 +20,19 @@ This is **not just a RAG system** - it's a complete AI platform with:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Rag.Web (React + TypeScript)                │
-│         ChatGPT-like UI │ Multi-Tenant │ JWT Auth              │
+│    ChatGPT-like UI │ SSE Streaming │ Multi-Tenant │ JWT Auth   │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓ HTTP/REST
+                         ↓ HTTP/REST + SSE
+┌─────────────────────────────────────────────────────────────────┐
+│                       Middleware Layer                          │
+│  JWT Auth │ Tenant Isolation │ Cost Tracking │ Security Headers│
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                          RAG API Layer                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │   Ingest     │  │     Ask      │  │   Agent Chat         │ │
-│  │ Documents    │  │  Questions   │  │  (Tool Calling)      │ │
+│  │ Documents    │  │  (Streaming) │  │  (Tool Calling)      │ │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘ │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │  Evaluation  │  │  Documents   │  │   Codebase           │ │
@@ -39,20 +44,30 @@ This is **not just a RAG system** - it's a complete AI platform with:
 │                      Core RAG Engine                            │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐│
 │  │  Embedding  │  │    Vector    │  │    Chat Model          ││
-│  │   Model     │  │    Store     │  │   (Claude Sonnet)      ││
-│  │  (OpenAI)   │  │  (Qdrant)    │  │                        ││
+│  │   Model     │  │    Store     │  │ (Claude Sonnet 4)      ││
+│  │  (OpenAI)   │  │  (Qdrant)    │  │  + SSE Streaming       ││
 │  └─────────────┘  └──────────────┘  └────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Agent Layer (Phase 5)                      │
+│                   Document Processing Layer                     │
+│  ┌─────────────────────┐  ┌──────────────────────────────────┐ │
+│  │  PDF Extraction     │  │   Background Jobs (Hangfire)    │ │
+│  │  • PdfPig (text)    │  │   • Async ingestion             │ │
+│  │  • Tesseract OCR    │  │   • Job monitoring              │ │
+│  │  • Image processing │  │   • Retry logic                 │ │
+│  └─────────────────────┘  └──────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                    Agent Layer (Phase 5)                        │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐│
 │  │    Tool     │  │     Tool     │  │      Agent             ││
 │  │  Registry   │  │   Executor   │  │   Orchestrator         ││
 │  └─────────────┘  └──────────────┘  └────────────────────────┘│
 │                                                                 │
-│  Built-in Tools:                                               │
-│  • rag_search - Semantic document search                       │
+│  Built-in Tools (Tenant-Aware):                                │
+│  • rag_search - Semantic document search (auto tenant filter)  │
 │  • github_search_repositories - GitHub repo search             │
 │  • github_search_code - GitHub code search                     │
 └─────────────────────────────────────────────────────────────────┘
@@ -62,7 +77,7 @@ This is **not just a RAG system** - it's a complete AI platform with:
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐│
 │  │   OpenAI    │  │    Qdrant    │  │   Anthropic Claude     ││
 │  │  Embeddings │  │    Vector    │  │    Chat Model          ││
-│  │             │  │   Database   │  │                        ││
+│  │  (3-small)  │  │   Database   │  │   (Sonnet 4)           ││
 │  └─────────────┘  └──────────────┘  └────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -82,14 +97,16 @@ graph TB
     subgraph "Frontend Layer"
         UI[Rag.Web<br/>React + TypeScript]
         Login[Login Component]
-        Chat[Chat Interface]
+        Chat[Chat Interface<br/>SSE Streaming]
     end
 
     subgraph "API Layer"
         API[Rag.Api<br/>.NET 10]
+        Middleware[Middleware<br/>JWT, Tenant, Cost, Security]
         Auth[Authentication<br/>Controller]
-        Ask[Ask<br/>Controller]
+        Ask[Ask Controller<br/>+ Streaming]
         Agent[Agent<br/>Controller]
+        Doc[Document<br/>Controller]
     end
 
     subgraph "Core Layer"
@@ -101,10 +118,12 @@ graph TB
     subgraph "Infrastructure Layer"
         JWT[JWT Service]
         OpenAI[OpenAI<br/>Embeddings]
-        Claude[Claude<br/>Chat Model]
+        Claude[Claude Chat Model<br/>+ SSE Streaming]
         Qdrant[Qdrant<br/>Vector Store]
-        AgentOrch[Agent<br/>Orchestrator]
+        AgentOrch[Agent<br/>Orchestrator<br/>+ Tenant Filter]
         Tools[Tool Registry]
+        PDF[PDF Extractor<br/>PdfPig + Tesseract OCR]
+        Hangfire[Hangfire<br/>Background Jobs]
     end
 
     subgraph "External Services"
@@ -117,13 +136,25 @@ graph TB
     UI --> Login
     UI --> Chat
     Login -->|JWT Token| Auth
-    Chat -->|HTTP/REST| API
+    Chat -->|HTTP/REST + SSE| API
+    
+    API --> Middleware
+    Middleware --> Auth
+    Middleware --> Ask
+    Middleware --> Agent
+    Middleware --> Doc
     
     Auth --> JWT
     Ask --> OpenAI
     Ask --> Claude
     Ask --> Qdrant
     Agent --> AgentOrch
+    Doc --> PDF
+    Doc --> Hangfire
+    
+    PDF --> Hangfire
+    Hangfire --> OpenAI
+    Hangfire --> Qdrant
     
     OpenAI --> OpenAIAPI
     Claude --> ClaudeAPI
@@ -136,6 +167,9 @@ graph TB
     style API fill:#34d399
     style Abstractions fill:#fbbf24
     style JWT fill:#a78bfa
+    style PDF fill:#fb923c
+    style Hangfire fill:#fb923c
+    style Middleware fill:#f59e0b
 ```
 ---
 
@@ -394,13 +428,17 @@ stateDiagram-v2
     
     state "Hangfire Background" as BG {
         EnqueueJob --> Extract: Extract text<br/>(PdfPig for PDFs)
-        Extract --> Chunk: Split into chunks<br/>512 tokens, 20% overlap
-        Chunk --> Embed: Generate embeddings<br/>OpenAI batch API
-        Embed --> Metadata: Add tenant_id,<br/>documentId, pageNumber
+        Extract --> CheckPages: Check if pages<br/>have content
+        CheckPages --> Chunk: Text extracted ✓
+        CheckPages --> OCR: Pages empty<br/>(Scanned PDF)
+        OCR --> Chunk: OCR with Tesseract<br/>Image → Text
+        Chunk --> Embed: Split into chunks<br/>512 tokens, 20% overlap
+        Embed --> Metadata: Generate embeddings<br/>OpenAI batch API
+        Metadata --> Store: Add tenant_id,<br/>documentId, pageNumber
     }
     
     state "Vector Store" as Store {
-        Metadata --> Upsert: Upsert to Qdrant<br/>with metadata filter
+        Store --> Upsert: Upsert to Qdrant<br/>with metadata filter
         Upsert --> Index: Index for search
     }
     
@@ -409,12 +447,22 @@ stateDiagram-v2
     state "Error Handling" as Error {
         Validate --> InvalidFile: Wrong file type
         Extract --> ExtractionFailed: PDF corrupt
+        OCR --> OcrFailed: OCR processing error
         Embed --> ApiFailed: OpenAI API error
     }
     
     InvalidFile --> [*]: ❌ 400 Bad Request
     ExtractionFailed --> [*]: ❌ 500 Error
+    OcrFailed --> [*]: ❌ 500 OCR Error
     ApiFailed --> [*]: ❌ 502 Error
+    
+    note right of OCR
+        OCR Processing:
+        • Tesseract 5.2.0
+        • English language data
+        • Image → Bitmap → Text
+        • Page-by-page processing
+    end note
     
     note right of Chunk
         Chunking Strategy:
@@ -437,13 +485,15 @@ stateDiagram-v2
 
 **Key Points:**
 - Asynchronous processing with Hangfire (job queue)
-- PDF text extraction with PdfPig library
+- **Two-phase PDF extraction**: Standard text (PdfPig) → OCR fallback (Tesseract 5.2.0)
+- **OCR for scanned PDFs**: Automatically detects image-based pages and applies OCR
 - Smart chunking: 512 tokens max, 20% overlap
 - Page number tracking for PDF citations
 - Batch embedding generation (cost optimization)
 - Hangfire dashboard at `/hangfire` for monitoring
 - Job retry on transient failures (3 attempts)
 - Status tracking: Pending → Processing → Completed/Failed
+- Detailed logging for PDF processing and OCR operations
 
 ---
 
