@@ -84,6 +84,18 @@ public class AgentOrchestrator : IAgentOrchestrator
             }
 
             // Execute tool calls
+            // Inject tenant_id for rag_search calls to ensure proper data isolation
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                foreach (var toolCall in toolCalls.Where(tc => tc.ToolName == "rag_search"))
+                {
+                    if (!toolCall.Arguments.ContainsKey("tenant_id"))
+                    {
+                        toolCall.Arguments["tenant_id"] = tenantId;
+                    }
+                }
+            }
+
             var toolResults = config.AllowParallelToolCalls && toolCalls.Count > 1
                 ? await _toolExecutor.ExecuteParallelAsync(toolCalls, cancellationToken)
                 : new Dictionary<string, ToolResult>();
@@ -223,7 +235,8 @@ Available tools:");
         if (config.UseRagForContext && tenantId != null)
         {
             sb.AppendLine($"\nCurrent tenant: {tenantId}");
-            sb.AppendLine("Use the 'rag_search' tool to retrieve relevant documents before answering questions about ingested content.");
+            sb.AppendLine("IMPORTANT: When calling 'rag_search' tool, ALWAYS include the tenant_id parameter with the current tenant value to ensure proper data isolation.");
+            sb.AppendLine($"Always use: {{\"tenant_id\": \"{tenantId}\"}} in rag_search calls.");
         }
 
         return sb.ToString();

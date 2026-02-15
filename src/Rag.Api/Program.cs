@@ -51,6 +51,7 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.Configure<CostTrackingSettings>(builder.Configuration.GetSection("CostTracking"));
 builder.Services.Configure<CorsSettings>(builder.Configuration.GetSection("Cors"));
 builder.Services.Configure<ValidationSettings>(builder.Configuration.GetSection("Validation"));
+builder.Services.Configure<PdfSettings>(builder.Configuration.GetSection("Pdf"));
 
 // Register typed settings (simple injection)
 builder.Services.AddSingleton(sp =>
@@ -61,6 +62,9 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AnthropicSettings>>().Value);
+
+builder.Services.AddSingleton(sp =>
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PdfSettings>>().Value);
 
 // 🏢 PHASE 2 - Enterprise: Multi-Tenancy Support
 builder.Services.AddScoped<TenantContext>();
@@ -176,10 +180,11 @@ using (var scope = app.Services.CreateScope())
     var registry = scope.ServiceProvider.GetRequiredService<IToolRegistry>();
     var embeddingModel = scope.ServiceProvider.GetRequiredService<IEmbeddingModel>();
     var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStore>();
+    var qdrantSettings = scope.ServiceProvider.GetRequiredService<Rag.Core.Models.QdrantSettings>();
     var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
 
     // RAG Search Tool
-    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore);
+    var ragTool = new Rag.Infrastructure.Agent.Tools.RagSearchTool(embeddingModel, vectorStore, qdrantSettings);
     registry.RegisterTool(ragTool, new Rag.Core.Agent.ToolMetadata(
         ragTool.Name,
         ragTool.Description,

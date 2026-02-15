@@ -491,6 +491,8 @@ mmdc -i ARCHITECTURE-DIAGRAMS.md -o diagrams/
 
 ### Phase 3B: Real-World Features
 - ✅ PDF text extraction with pagination tracking
+- ✅ **OCR support for scanned PDFs (Tesseract 5.2.0)**
+- ✅ Smart PDF processing (standard text → OCR fallback)
 - ✅ Background job processing (Hangfire)
 - ✅ Document update/delete operations
 - ✅ Hangfire dashboard for job monitoring
@@ -515,6 +517,29 @@ mmdc -i ARCHITECTURE-DIAGRAMS.md -o diagrams/
 - ✅ GitHub integration (repos and code search)
 - ✅ Chain-of-thought reasoning
 - ✅ Conversation history tracking
+
+### Phase 6: Security Hardening
+- ✅ Input validation with FluentValidation
+- ✅ Security headers middleware
+- ✅ XSS and injection attack prevention
+- ✅ Rate limiting per endpoint
+- ✅ Request size limits
+
+### Phase 7: Observability
+- ✅ Structured logging with Serilog
+- ✅ Request/response logging
+- ✅ Performance metrics
+- ✅ Health check endpoints
+- ✅ Log enrichment with context
+
+### 🚀 Phase 8: Streaming & Real-time (IN PROGRESS)
+- ✅ Server-Sent Events (SSE) for streaming responses
+- ✅ Token-by-token streaming
+- ✅ Real-time UI updates with React refs
+- ✅ Connection management and error handling
+- 🔄 WebSocket support for bidirectional chat (planned)
+
+📖 **[View Phase 8 Implementation Plan →](PHASE8-STREAMING.md)**
 
 ## 🔌 Complete API Reference
 
@@ -560,6 +585,11 @@ Response: 202 Accepted
 }
 ```
 
+**📝 Note on Scanned PDFs:** The system automatically detects image-based (scanned) PDFs and applies OCR using Tesseract. Check logs at `src/Rag.Api/logs/rag-api-{date}.log` for OCR processing details:
+- "Extracted X pages using standard method"
+- "All pages empty, applying OCR fallback"
+- "Successfully extracted X characters using OCR"
+
 ### 2. Query Endpoints
 
 #### Ask Question (RAG Query)
@@ -584,6 +614,41 @@ Response: 200 OK
     "totalCost": 0.0031
   }
 }
+```
+
+#### ⚡ Streaming RAG Query (Phase 8 - NEW)
+```http
+GET /api/v1/ask/stream?question=What%20is%20RAG?&topK=5
+Accept: text/event-stream
+X-API-Key: secure_password
+X-Tenant-Id: your-tenant-id
+
+Response: 200 OK
+Content-Type: text/event-stream
+
+data: {"token":"RAG","done":false}
+
+data: {"token":" stands","done":false}
+
+data: {"token":" for","done":false}
+
+data: {"token":" Retrieval","done":false}
+
+data: {"done":true}
+```
+
+**Benefits:**
+- Token-by-token streaming for better UX
+- Reduced perceived latency
+- Real-time progress feedback
+- Same backend logic as batch endpoint
+
+**Frontend Integration:**
+```typescript
+import { useSSE } from '@/hooks/useSSE';
+import { StreamingChat } from '@/components/StreamingChat';
+
+// See PHASE8-STREAMING.md for complete examples
 ```
 
 ### 3. Evaluation Endpoints
@@ -714,6 +779,11 @@ Update `src/Rag.Api/appsettings.json`:
   },
   "Security": {
     "ApiKey": "secure_password"
+  },
+  "Pdf": {
+    "EnableOcr": true,
+    "TessdataPath": "tessdata",
+    "OcrLanguage": "eng"
   }
 }
 ```
@@ -838,7 +908,9 @@ The React frontend (`src/Rag.Web`) provides a modern, ChatGPT-like interface wit
 - **Embedding Model**: OpenAI text-embedding-3-small
 - **Chat Model**: Anthropic Claude Sonnet 4
 - **Background Jobs**: Hangfire
-- **PDF Processing**: PdfPig
+- **PDF Processing**: PdfPig + Tesseract OCR 5.2.0
+- **Image Processing**: System.Drawing.Common 8.0.0
+- **OCR Language Data**: English (eng.traineddata)
 - **Resilience**: Polly
 - **Authentication**: JWT + API Keys
 
@@ -886,25 +958,60 @@ The React frontend (`src/Rag.Web`) provides a modern, ChatGPT-like interface wit
 | Codebase Understanding | ❌ | ✅ |
 | GitHub Integration | ❌ | ✅ |
 
-## 🔮 Future Enhancements
+## � Recent Updates & Bug Fixes
 
-- Streaming responses (SSE/WebSocket)
-- Advanced caching (Redis, semantic cache)
-- More tools (web scraping, SQL, calculator)
-- Long-term memory
-- OpenTelemetry observability
-- Hybrid search (vector + keyword)
+### OCR Support for Scanned PDFs (Latest)
+- **Problem**: PDF documents with scanned images were being ingested with 0 pages extracted
+- **Solution**: Integrated Tesseract OCR 5.2.0 with two-phase extraction strategy
+  1. First attempt: Standard text extraction using PdfPig
+  2. Fallback: OCR processing for image-based pages using Tesseract
+- **Configuration**: Added `Pdf` section in appsettings with `EnableOcr`, `TessdataPath`, `OcrLanguage`
+- **Result**: Now successfully extracts text from scanned documents (passports, licenses, forms, etc.)
+
+### Tenant Isolation in Agent Mode
+- **Problem**: Agent Mode's `rag_search` tool was not properly filtering by tenant_id, causing cross-tenant data leakage
+- **Solution**: Auto-inject `tenant_id` parameter in `AgentOrchestrator` for all `rag_search` tool calls
+- **Impact**: Ensures multi-tenant data isolation in Agent Mode matches RAG Mode security
+
+### Collection Name Consistency
+- **Problem**: Agent Mode used hardcoded collection name ("rag_chunks") while RAG Mode used configured collection
+- **Solution**: Updated `RagSearchTool` to accept `QdrantSettings` and use configured collection name
+- **Result**: Both Agent and RAG modes now consistently use the same configured collection
+
+### Streaming Content Persistence
+- **Problem**: Streaming messages would disappear after response completion due to React stale closures
+- **Solution**: Implemented `streamingContentRef` pattern to avoid stale state in SSE event handlers
+- **Result**: Streaming content now persists correctly in the UI after completion
+
+## �🔮 Future Phases (Planned)
+
+### Phase 9: Advanced Caching & Search 🚀
+- Redis distributed caching
+- Semantic cache (similar queries → cached responses)
+- Hybrid search (vector + BM25 keyword matching)
+- Cache warming strategies
+
+### Phase 10: Agent Tool Expansion 🤖
+- Web scraping tool (Playwright/Puppeteer)
+- SQL query tool (safe read-only queries)
+- Calculator/Math evaluation tool
+- Long-term memory (conversation persistence)
+
+### Phase 11: Production Infrastructure 🏢
 - Database migration (SQL Server/PostgreSQL)
+- OpenTelemetry distributed tracing
+- Persistent Hangfire storage
+- Database migrations with EF Core
 
 ## 📝 Stats
 
 - **Total LOC**: ~10,000+ lines (Backend: 6,000+ | Frontend: 4,000+)
 - **Total Files**: 80+ files
-- **Phases Completed**: 5/5
+- **Phases Completed**: 7/11 (Phase 8 in progress)
 - **API Endpoints**: 38+ endpoints
 - **Built-in Tools**: 3 tools
 - **Frontend Components**: 15+ React components
-- **Status**: Production-Ready 🚀
+- **Status**: Production-Ready + Actively Enhancing 🚀
 
 ---
 

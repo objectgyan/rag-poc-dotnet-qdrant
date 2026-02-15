@@ -1,5 +1,6 @@
 using Rag.Core.Abstractions;
 using Rag.Core.Agent;
+using Rag.Core.Models;
 
 namespace Rag.Infrastructure.Agent.Tools;
 
@@ -10,6 +11,7 @@ public class RagSearchTool : ITool
 {
     private readonly IEmbeddingModel _embeddingModel;
     private readonly IVectorStore _vectorStore;
+    private readonly string _collectionName;
 
     public string Name => "rag_search";
 
@@ -22,10 +24,11 @@ public class RagSearchTool : ITool
         new("tenant_id", "Tenant ID for multi-tenancy isolation", "string", false)
     };
 
-    public RagSearchTool(IEmbeddingModel embeddingModel, IVectorStore vectorStore)
+    public RagSearchTool(IEmbeddingModel embeddingModel, IVectorStore vectorStore, QdrantSettings qdrantSettings)
     {
         _embeddingModel = embeddingModel;
         _vectorStore = vectorStore;
+        _collectionName = qdrantSettings.Collection;
     }
 
     public async Task<ToolResult> ExecuteAsync(Dictionary<string, object> arguments, CancellationToken cancellationToken = default)
@@ -38,8 +41,8 @@ public class RagSearchTool : ITool
         var embeddingResult = await _embeddingModel.EmbedAsync(query, cancellationToken);
         var embedding = embeddingResult.Embedding; // Keep as float[]
 
-        // Search
-        var results = await _vectorStore.SearchAsync("rag_chunks", embedding, topK, tenantId, cancellationToken);
+        // Search using configured collection
+        var results = await _vectorStore.SearchAsync(_collectionName, embedding, topK, tenantId, cancellationToken);
 
         if (results.Count == 0)
         {

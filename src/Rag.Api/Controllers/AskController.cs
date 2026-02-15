@@ -64,9 +64,14 @@ public sealed class AskController : ControllerBase
             tenantId: _tenantContext.TenantId,
             ct);
 
+        Console.WriteLine($"[STANDARD] Question: {req.Question}");
+        Console.WriteLine($"[STANDARD] TenantId: {_tenantContext.TenantId}");
+        Console.WriteLine($"[STANDARD] Hits found: {hits.Count}");
+
         // Build context with citations
         var citations = new List<Citation>();
         var context = new StringBuilder();
+        var hitDetails = new List<string>();
 
         foreach (var h in hits)
         {
@@ -76,11 +81,16 @@ public sealed class AskController : ControllerBase
             var text = Rag.Core.Text.PromptGuards.SanitizeContext(textRaw);
             
             citations.Add(new Citation(docId, chunkIndex, h.Score));
+            hitDetails.Add($"{docId}:{chunkIndex} (score: {h.Score:F3})");
 
             context.AppendLine($"[Source: {docId}:{chunkIndex}]");
             context.AppendLine(text);
             context.AppendLine();
         }
+
+        Console.WriteLine($"[STANDARD] Context sources: {string.Join(", ", hitDetails)}");
+        Console.WriteLine($"[STANDARD] Context length: {context.Length} chars");
+        Console.WriteLine($"[STANDARD] Context preview: {context.ToString().Substring(0, Math.Min(200, context.Length))}...");
 
         const string systemPrompt =
         @"You are a helpful assistant.
@@ -149,7 +159,12 @@ public sealed class AskController : ControllerBase
             tenantId: _tenantContext.TenantId,
             ct);
 
+        Console.WriteLine($"[STREAM] Question: {question}");
+        Console.WriteLine($"[STREAM] TenantId: {_tenantContext.TenantId}");
+        Console.WriteLine($"[STREAM] Hits found: {hits.Count}");
+
         var context = new StringBuilder();
+        var hitDetails = new List<string>();
         foreach (var h in hits)
         {
             var docId = h.Payload.TryGetValue("documentId", out var d) ? d?.ToString() ?? "" : "";
@@ -157,10 +172,15 @@ public sealed class AskController : ControllerBase
             var textRaw = h.Payload.TryGetValue("text", out var t) ? t?.ToString() ?? "" : "";
             var text = Rag.Core.Text.PromptGuards.SanitizeContext(textRaw);
 
+            hitDetails.Add($"{docId}:{chunkIndex} (score: {h.Score:F3})");
             context.AppendLine($"[Source: {docId}:{chunkIndex}]");
             context.AppendLine(text);
             context.AppendLine();
         }
+
+        Console.WriteLine($"[STREAM] Context sources: {string.Join(", ", hitDetails)}");
+        Console.WriteLine($"[STREAM] Context length: {context.Length} chars");
+        Console.WriteLine($"[STREAM] Context preview: {context.ToString().Substring(0, Math.Min(200, context.Length))}...");
 
         const string systemPrompt =
         @"You are a helpful assistant.

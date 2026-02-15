@@ -115,3 +115,24 @@ public sealed class ValidationSettings
     /// </summary>
     public List<string> AllowedFileTypes { get; set; } = new() { ".pdf", ".txt", ".md" };
 }
+
+/// <summary>
+/// PDF processing and OCR configuration settings.
+/// </summary>
+public sealed class PdfSettings
+{
+    /// <summary>
+    /// Enable OCR for scanned/image-based PDFs.
+    /// </summary>
+    public bool EnableOcr { get; set; } = true;
+
+    /// <summary>
+    /// Path to Tesseract tessdata directory (language files).
+    /// </summary>
+    public string TessdataPath { get; set; } = "tessdata";
+
+    /// <summary>
+    /// OCR language (e.g., "eng" for English).
+    /// </summary>
+    public string OcrLanguage { get; set; } = "eng";
+}
